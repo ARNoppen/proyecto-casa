@@ -1,4 +1,4 @@
-# Gestión Personal (Finanzas Familiares)
+# Gestión Personal
 
 Sistema web para el control de gastos familiares, presupuesto colaborativo y seguimiento mensual.
 
