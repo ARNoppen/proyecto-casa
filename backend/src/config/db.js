@@ -13,7 +13,7 @@ const createDbIfNotExists = async () => {
             password: process.env.MYSQLPASSWORD || process.env.DB_PASSWORD,
         });
 
-        const dbName = process.env.MYSQLDATABASE || process.env.DB_NAME;
+        const dbName = process.env.DB_NAME || process.env.MYSQLDATABASE || 'proyecto_casa_db';
         await rootConnection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\`;`);
         await rootConnection.end();
     } catch (error) {
@@ -32,14 +32,15 @@ const initializeDatabase = async () => {
             port: Number(process.env.MYSQLPORT || process.env.DB_PORT) || 3307,
             user: process.env.MYSQLUSER || process.env.DB_USER,
             password: process.env.MYSQLPASSWORD || process.env.DB_PASSWORD,
-            database: process.env.MYSQLDATABASE || process.env.DB_NAME,
+            database: process.env.DB_NAME || process.env.MYSQLDATABASE || 'proyecto_casa_db',
             waitForConnections: true,
             connectionLimit: 10,
             queueLimit: 0,
             multipleStatements: true // Crítico para correr init.sql de golpe
         });
 
-        console.log(`🔌 [DB INFO] -> host: ${process.env.MYSQLHOST || process.env.DB_HOST || '127.0.0.1'} | db: ${process.env.MYSQLDATABASE || process.env.DB_NAME}`);
+        const actualDbName = process.env.DB_NAME || process.env.MYSQLDATABASE || 'proyecto_casa_db';
+        console.log(`🔌 [DB INFO] -> host: ${process.env.MYSQLHOST || process.env.DB_HOST || '127.0.0.1'} | db: ${actualDbName}`);
         
         // Comprobar si las tablas existen
         try {
