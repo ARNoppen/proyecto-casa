@@ -7,6 +7,7 @@ const DashboardView = () => import('../views/DashboardView.vue');
 const UsersView = () => import('../views/UsersView.vue');
 const MonthsView = () => import('../views/MonthsView.vue');
 const ExpensesView = () => import('../views/ExpensesView.vue');
+const ImportView = () => import('../views/ImportView.vue');
 
 const AuthLayout = () => import('../layouts/AuthLayout.vue');
 const MainLayout = () => import('../layouts/MainLayout.vue');
@@ -49,6 +50,11 @@ const routes = [
         path: 'expenses',
         name: 'Expenses',
         component: ExpensesView
+      },
+      {
+        path: 'import',
+        name: 'Importar',
+        component: ImportView
       }
     ]
   },
