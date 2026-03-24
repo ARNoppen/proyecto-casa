@@ -140,15 +140,14 @@ const parseSpanishMonth = (val) => {
 const parseExcelDate = (val) => {
   if (!val) return null;
   
-  // 1. Objeto Date (SheetJS lee celdas tipo Date como UTC 00:00)
+  // 1. Objeto Date (Normalmente de SheetJS en UTC 00:00)
   if (val instanceof Date) {
-    // Al extraer año/mes/día, DEBEMOS usar los métodos UTC para evitar el desfase local
+    // Extraemos año/mes/día directos en UTC para crear un objeto Local puro
     return new Date(val.getUTCFullYear(), val.getUTCMonth(), val.getUTCDate());
   }
 
-  // 2. Serial Numérico de Excel
+  // 2. Serial Numérico de Excel (Días desde 1899-12-30)
   if (typeof val === 'number') {
-    // Calculamos el Epoch UTC y luego extraemos sus componentes para crear una fecha Local
     const dateUTC = new Date(Math.round((val - 25569) * 86400 * 1000));
     return new Date(dateUTC.getUTCFullYear(), dateUTC.getUTCMonth(), dateUTC.getUTCDate());
   }
@@ -157,30 +156,37 @@ const parseExcelDate = (val) => {
     const s = val.trim();
     if (!s) return null;
 
-    // 3. Intentar dd/mm/yyyy o dd-mm-yyyy (Prioridad solicitada por el usuario)
-    const dmyMatch = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+    // 3. Formato dd/mm/yyyy o d/m/yy (Soporta 1 o 2 dígitos y años de 2 o 4 dígitos)
+    const dmyMatch = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
     if (dmyMatch) {
       const day = parseInt(dmyMatch[1], 10);
-      const month = parseInt(dmyMatch[2], 10) - 1; // 0-indexed
-      const year = parseInt(dmyMatch[3], 10);
+      const month = parseInt(dmyMatch[2], 10) - 1;
+      let year = parseInt(dmyMatch[3], 10);
+      if (year < 100) year += (year < 50 ? 2000 : 1900); // Milenio actual
       return new Date(year, month, day);
     }
 
-    // 4. Intentar yyyy-mm-dd (ISO)
+    // 4. Formato yyyy-mm-dd (ISO)
     const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
     if (isoMatch) {
-      // new Date('YYYY-MM-DD') se interpreta como UTC por defecto y causa desfase.
-      // Forzamos interpretación local:
       const y = parseInt(isoMatch[1], 10);
       const m = parseInt(isoMatch[2], 10) - 1;
       const d = parseInt(isoMatch[3], 10);
       return new Date(y, m, d);
     }
 
-    // Fallback genérico (Intentar tratar como local)
-    const fallback = new Date(s);
-    if (isNaN(fallback.getTime())) return null;
-    return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
+    // 5. Fallback desesperado: Extracción de números cruda
+    // Si el texto es "2025-10-01 10:30" o algo raro, intentamos sacar los 3 primeros grupos
+    const parts = s.match(/\d+/g);
+    if (parts && parts.length >= 3) {
+      if (parts[0].length === 4) { // Asumimos YYYY-MM-DD
+        return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      } else { // Asumimos DD-MM-YYYY
+        let yearPart = parseInt(parts[2]);
+        if (yearPart < 100) yearPart += 2000;
+        return new Date(yearPart, parseInt(parts[1]) - 1, parseInt(parts[0]));
+      }
+    }
   }
   return null;
 };
