@@ -8,6 +8,7 @@ router.use(requireAuth);
 
 router.get('/', getExpenses);
 router.post('/', createExpense);
+router.post('/bulk', require('./../controllers/expenseController').bulkCreateExpenses);
 router.put('/:id', updateExpense);
 router.delete('/:id', deleteExpense);
 

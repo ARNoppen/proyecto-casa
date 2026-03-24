@@ -41,6 +41,7 @@ watch(() => route.path, () => {
         <RouterLink to="/" class="nav-item" exact-active-class="active-link">Dashboard</RouterLink>
         <RouterLink to="/months" class="nav-item" active-class="active-link">Meses</RouterLink>
         <RouterLink to="/expenses" class="nav-item" active-class="active-link">Historial Gastos</RouterLink>
+        <RouterLink to="/import" class="nav-item" active-class="active-link">Importar Excel</RouterLink>
         <RouterLink v-if="authStore.isAdmin" to="/users" class="nav-item admin-only" active-class="active-link">Usuarios (Admin)</RouterLink>
       </nav>
       

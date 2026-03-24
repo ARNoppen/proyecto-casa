@@ -97,4 +97,68 @@ const deleteExpense = async (req, res) => {
     }
 };
 
-module.exports = { getExpenses, createExpense, updateExpense, deleteExpense };
+const bulkCreateExpenses = async (req, res) => {
+    try {
+        const { movements } = req.body; // Array de { amount, description, date, assigned_to_user_id, month, year }
+
+        if (!movements || !Array.isArray(movements)) {
+            return res.status(400).json({ error: 'Se requiere un array de movimientos' });
+        }
+
+        const results = {
+            total: movements.length,
+            success: 0,
+            failed: 0,
+            monthsCreated: 0
+        };
+
+        // Caché local de meses para evitar consultas redundantes en el loop
+        const monthCache = {};
+
+        for (const mov of movements) {
+            const { amount, description, date, assigned_to_user_id, month, year } = mov;
+
+            try {
+                const cacheKey = `${month}-${year}`;
+                let configId = monthCache[cacheKey];
+
+                if (!configId) {
+                    let config = await MonthModel.findByMonthAndYear(month, year);
+                    if (!config) {
+                        // Abrir mes automáticamente si no existe
+                        configId = await MonthModel.createMonth(month, year);
+                        results.monthsCreated++;
+                    } else {
+                        configId = config.id;
+                    }
+                    monthCache[cacheKey] = configId;
+                }
+
+                const expenseData = {
+                    created_by_user_id: req.user.id,
+                    assigned_to_user_id,
+                    monthly_config_id: configId,
+                    date,
+                    amount: -Math.abs(parseFloat(amount)),
+                    description
+                };
+
+                await ExpenseModel.create(expenseData);
+                results.success++;
+            } catch (err) {
+                console.error('Error en fila de importación:', err);
+                results.failed++;
+            }
+        }
+
+        res.json({
+            message: 'Proceso de importación finalizado',
+            results
+        });
+    } catch (error) {
+        console.error('Error en bulk import:', error);
+        res.status(500).json({ error: 'Error general en la importación masiva' });
+    }
+};
+
+module.exports = { getExpenses, createExpense, updateExpense, deleteExpense, bulkCreateExpenses };
