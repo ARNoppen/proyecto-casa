@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const users = ref([]);
+const existingMonths = ref([]);
 const currentStep = ref(1); // 1: Upload, 2: Sheet (optional), 3: Mapping, 4: Preview, 5: Result
 
 // File data
@@ -46,10 +47,14 @@ const importResult = ref(null);
 
 onMounted(async () => {
   try {
-    const res = await api.get('/users');
-    users.value = res.data.filter(u => u.is_active);
+    const [uRes, mRes] = await Promise.all([
+      api.get('/users'),
+      api.get('/months')
+    ]);
+    users.value = uRes.data.filter(u => u.is_active);
+    existingMonths.value = mRes.data;
   } catch (err) {
-    console.error('Error al cargar usuarios:', err);
+    console.error('Error al cargar datos maestros:', err);
   }
 });
 
@@ -193,7 +198,7 @@ const validateAndPreview = () => {
     }
 
     // Procesar fecha robustamente
-    const dateObj = parseExcelDate(dateRaw);
+    let dateObj = parseExcelDate(dateRaw);
     
     // Resolución de Período (Regla: Prioridad Fecha > Columna Mes)
     let year, month;
@@ -282,7 +287,11 @@ const validateAndPreview = () => {
       summary.totalToImport += subMovements.length;
       subMovements.forEach(m => {
         results.push(m);
-        summary.newMonths.add(periodStr);
+        // Solo agregar a la lista de "Nuevos" si realmente no existe en la DB
+        const exists = existingMonths.value.some(em => em.month === m.month && em.year === m.year);
+        if (!exists) {
+          summary.newMonths.add(periodStr);
+        }
       });
     }
   });
