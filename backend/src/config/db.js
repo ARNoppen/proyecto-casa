@@ -36,7 +36,8 @@ const initializeDatabase = async () => {
             waitForConnections: true,
             connectionLimit: 10,
             queueLimit: 0,
-            multipleStatements: true // Crítico para correr init.sql de golpe
+            multipleStatements: true, // Crítico para correr init.sql de golpe
+            dateStrings: true // Evita que mysql2 convierta DATETIME a Date objects de JS (mantiene el string literal)
         });
 
         const actualDbName = process.env.DB_NAME || process.env.MYSQLDATABASE || 'proyecto_casa_db';

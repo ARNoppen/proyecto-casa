@@ -241,10 +241,13 @@ const validateAndPreview = () => {
         if (!userId) {
           summary.noPerson++;
         } else {
+          // Formatear fecha localmente para evitar shift de timezone (YYYY-MM-DD HH:mm:ss)
+          const localISO = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')} 00:00:00`;
+          
           subMovements.push({ 
             amount, 
             description: desc, 
-            date: dateObj.toISOString().slice(0, 19).replace('T', ' '), 
+            date: localISO, 
             assigned_to_user_id: userId, 
             month, 
             year,
@@ -265,10 +268,11 @@ const validateAndPreview = () => {
           
           const userId = users.value.find(u => h.toLowerCase().includes(u.name.toLowerCase()))?.id;
           if (userId) {
+            const localISO = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')} 00:00:00`;
             subMovements.push({ 
               amount, 
               description: desc, 
-              date: dateObj.toISOString().slice(0, 19).replace('T', ' '), 
+              date: localISO, 
               assigned_to_user_id: userId, 
               month, 
               year,
