@@ -117,6 +117,20 @@ const autoSuggestMapping = () => {
   });
 };
 
+// --- ROBUST MONTH PARSING ---
+const parseSpanishMonth = (val) => {
+  if (!val) return null;
+  const s = String(val).toLowerCase().trim();
+  const months = {
+    'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4, 'mayo': 5, 'junio': 6,
+    'julio': 7, 'agosto': 8, 'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12,
+    'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4, 'may': 5, 'jun': 6, 'jul': 7, 'ago': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dic': 12
+  };
+  if (months[s]) return months[s];
+  const num = parseInt(s);
+  return isNaN(num) ? null : (num >= 1 && num <= 12 ? num : null);
+};
+
 // --- ROBUST DATE PARSING ---
 const parseExcelDate = (val) => {
   if (!val) return null;
@@ -180,13 +194,29 @@ const validateAndPreview = () => {
 
     // Procesar fecha robustamente
     const dateObj = parseExcelDate(dateRaw);
-    if (!dateObj) {
+    
+    // Resolución de Período (Regla: Prioridad Fecha > Columna Mes)
+    let year, month;
+    if (dateObj) {
+      year = dateObj.getFullYear();
+      month = dateObj.getMonth() + 1;
+    } else if (mapping.value.month) {
+      // Fallback a columna mes si no hay fecha válida
+      month = parseSpanishMonth(monthRaw);
+      year = new Date().getFullYear(); // Fallback de año si no hay
+      if (!month) {
+        summary.invalidDate++;
+        return;
+      }
+      // Si no había fecha pero sí hay mes, creamos una fecha base para el registro (día 1)
+      dateObj = new Date(year, month - 1, 1);
+    } else {
       summary.invalidDate++;
       return;
     }
 
-    const year = dateObj.getFullYear();
-    const month = monthRaw ? parseInt(monthRaw) : dateObj.getMonth() + 1;
+    // Generar string de periodo formateado para la previsualización (MM/YYYY)
+    const periodStr = `${String(month).padStart(2, '0')}/${year}`;
 
     // Procesar Personas y Montos (Split logic)
     const subMovements = [];
@@ -206,7 +236,15 @@ const validateAndPreview = () => {
         if (!userId) {
           summary.noPerson++;
         } else {
-          subMovements.push({ amount, description: desc, date: dateObj.toISOString().slice(0, 19).replace('T', ' '), assigned_to_user_id: userId, month, year });
+          subMovements.push({ 
+            amount, 
+            description: desc, 
+            date: dateObj.toISOString().slice(0, 19).replace('T', ' '), 
+            assigned_to_user_id: userId, 
+            month, 
+            year,
+            periodDisplay: periodStr // Solo para la tabla de previsualización
+          });
         }
       }
     } else {
@@ -222,7 +260,15 @@ const validateAndPreview = () => {
           
           const userId = users.value.find(u => h.toLowerCase().includes(u.name.toLowerCase()))?.id;
           if (userId) {
-            subMovements.push({ amount, description: desc, date: dateObj.toISOString().slice(0, 19).replace('T', ' '), assigned_to_user_id: userId, month, year });
+            subMovements.push({ 
+              amount, 
+              description: desc, 
+              date: dateObj.toISOString().slice(0, 19).replace('T', ' '), 
+              assigned_to_user_id: userId, 
+              month, 
+              year,
+              periodDisplay: periodStr
+            });
             rowHadImpact++;
           }
         }
@@ -236,7 +282,7 @@ const validateAndPreview = () => {
       summary.totalToImport += subMovements.length;
       subMovements.forEach(m => {
         results.push(m);
-        summary.newMonths.add(`${m.month}/${m.year}`);
+        summary.newMonths.add(periodStr);
       });
     }
   });
@@ -445,7 +491,7 @@ const reset = () => {
           <tbody>
             <tr v-for="(m, idx) in movements.slice(0, 50)" :key="idx">
               <td>{{ new Date(m.date).toLocaleDateString() }}</td>
-              <td>{{ m.month }}/{{ m.year }}</td>
+              <td>{{ m.periodDisplay }}</td>
               <td>{{ m.description }}</td>
               <td class="text-amount">${{ m.amount.toFixed(2) }}</td>
               <td>{{ users.find(u => u.id === m.assigned_to_user_id)?.name }}</td>
