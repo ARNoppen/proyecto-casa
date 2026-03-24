@@ -301,21 +301,21 @@ const saveExpense = async () => {
 
 <style scoped>
 /* NAVIGATOR */
-.header-navigator { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; background: #1A1C1D; padding: 1rem 1.5rem; border-radius: 12px; border: 1px solid #333; }
-.month-controls { display: flex; align-items: center; gap: 1rem; }
+.header-navigator { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; background: #1A1C1D; padding: 1rem 1.5rem; border-radius: 12px; border: 1px solid #333; flex-wrap: wrap; gap: 1rem; }
+.month-controls { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; justify-content: center; }
 .month-controls h2 { margin: 0; font-size: 1.3rem; color: #FFF; font-weight: 800; min-width: 190px; text-align: center; }
-.btn-arrow { background: #111; color: #A0A5AA; border: 1px solid #333; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; cursor: pointer; transition: 0.2s; }
+.btn-arrow { background: #111; color: #A0A5AA; border: 1px solid #333; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
 .btn-arrow:hover { color: #FFF; border-color: #555; }
-.status-chip { padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-left:1rem; }
+.status-chip { padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-left: 0.5rem; }
 .status-chip.open { background-color: rgba(0, 255, 102, 0.15); color: #00FF66; }
 .status-chip.closed { background-color: rgba(255, 255, 255, 0.1); color: #999; }
-.flex-btn { display: flex; align-items: center; gap: 0.5rem; }
+.flex-btn { display: flex; align-items: center; gap: 0.5rem; justify-content: center; }
 .icon-plus { font-size: 1.2rem; line-height: 1; }
 
 .empty-state { text-align: center; padding: 4rem 2rem; background-color: #1A1C1D; border: 1px dashed #333; border-radius: 12px; color: #7E8286; }
 
 /* SUMMARY CARDS */
-.summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2.5rem; }
+.summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; }
 .card { padding: 1.5rem; border-radius: 12px; border: 1px solid #333; }
 .card.bg-dark { background-color: #1A1C1D; }
 .card.bg-success { background-color: rgba(0, 255, 102, 0.05); border-color: rgba(0, 255, 102, 0.2); }
@@ -348,7 +348,7 @@ const saveExpense = async () => {
 .val.exito { color: #00E5FF; }
 
 /* TABLE RECENT */
-.table-container { background-color: #1A1C1D; border-radius: 12px; overflow: hidden; border: 1px solid #333; margin-bottom: 2rem; }
+.table-container { background-color: #1A1C1D; border-radius: 12px; overflow-x: auto; border: 1px solid #333; margin-bottom: 2rem; }
 .data-table { width: 100%; border-collapse: collapse; text-align: left; }
 .data-table th, .data-table td { padding: 1rem 1.5rem; border-bottom: 1px solid #2A2C2E; }
 .data-table th { color: #7E8286; font-weight: 500; font-size: 0.85rem; }
@@ -375,4 +375,13 @@ const saveExpense = async () => {
 .btn-primary { background: #00FF66; color: #000; border: none; font-weight: 700; padding: 0.8rem 1.5rem; border-radius: 8px; cursor: pointer; font-size: 1rem; }
 .btn-primary:active { transform: scale(0.98); }
 .btn-primary:disabled { background: #24272A; color: #555; cursor: not-allowed; }
+
+@media (max-width: 600px) {
+  .header-navigator { flex-direction: column; align-items: stretch; text-align: center; }
+  .month-controls { justify-content: center; }
+  .month-controls h2 { min-width: auto; font-size: 1.1rem; }
+  .btn-primary { width: 100%; justify-content: center; }
+  .summary-cards { grid-template-columns: 1fr; }
+  .card h3 { font-size: 1.5rem; }
+}
 </style>

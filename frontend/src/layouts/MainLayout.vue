@@ -1,19 +1,39 @@
 <script setup>
-import { RouterView, RouterLink, useRouter } from 'vue-router';
+import { ref, watch } from 'vue';
+import { RouterView, RouterLink, useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
 
 const authStore = useAuthStore();
 const router = useRouter();
+const route = useRoute();
+
+const isSidebarOpen = ref(false);
 
 const handleLogout = () => {
   authStore.logout();
   router.push('/login');
 };
+
+const toggleSidebar = () => {
+  isSidebarOpen.value = !isSidebarOpen.value;
+};
+
+// Cerrar sidebar al cambiar de ruta (importante en móvil)
+watch(() => route.path, () => {
+  isSidebarOpen.value = false;
+});
 </script>
 
 <template>
   <div class="main-layout">
-    <aside class="sidebar">
+    <!-- Capa oscura de fondo para cerrar el menú en móvil -->
+    <div 
+      v-if="isSidebarOpen" 
+      class="sidebar-backdrop" 
+      @click="isSidebarOpen = false"
+    ></div>
+
+    <aside :class="['sidebar', { 'sidebar-open': isSidebarOpen }]">
       <div class="brand">
         <h2>Gestión Personal<span class="dot">.</span></h2>
       </div>
@@ -35,6 +55,13 @@ const handleLogout = () => {
 
     <main class="content">
       <header class="top-header">
+        <!-- Botón Hamburguesa (solo visible en móvil) -->
+        <button class="menu-toggle" @click="toggleSidebar" aria-label="Abrir menú">
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+        </button>
+
         <div class="breadcrumbs">
           <span>Hogar</span> / <span class="active">{{ $route.name }}</span>
         </div>
@@ -53,8 +80,11 @@ const handleLogout = () => {
   display: flex;
   min-height: 100vh;
   background-color: #111111;
+  position: relative;
+  overflow-x: hidden; /* Previene scroll horizontal accidental */
 }
 
+/* Sidebar behavior */
 .sidebar {
   width: 260px;
   background-color: #1A1C1D;
@@ -62,6 +92,8 @@ const handleLogout = () => {
   flex-direction: column;
   padding: 1.5rem;
   border-right: 1px solid #333;
+  transition: transform 0.3s ease;
+  z-index: 100;
 }
 
 .brand h2 {
@@ -142,10 +174,12 @@ const handleLogout = () => {
   background-color: rgba(255, 74, 74, 0.1);
 }
 
+/* Content Area */
 .content {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0; /* Permite que el contenido se encoja correctamente */
 }
 
 .top-header {
@@ -154,6 +188,25 @@ const handleLogout = () => {
   display: flex;
   align-items: center;
   border-bottom: 1px solid #222;
+  gap: 1rem;
+}
+
+.menu-toggle {
+  display: none; /* Oculto en desktop */
+  background: none;
+  border: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.hamburger-line {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background-color: #FFF;
+  border-radius: 2px;
 }
 
 .breadcrumbs {
@@ -170,5 +223,44 @@ const handleLogout = () => {
   padding: 2rem;
   flex: 1;
   overflow-y: auto;
+}
+
+/* RESPONSIVE: Mobile & Tablet */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+    box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+  }
+
+  .sidebar-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    z-index: 90;
+  }
+
+  .menu-toggle {
+    display: flex;
+  }
+
+  .top-header {
+    padding: 0 1rem;
+  }
+
+  .page-content {
+    padding: 1.5rem 1rem;
+  }
 }
 </style>
