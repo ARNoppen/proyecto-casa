@@ -139,18 +139,25 @@ const parseSpanishMonth = (val) => {
 // --- ROBUST DATE PARSING ---
 const parseExcelDate = (val) => {
   if (!val) return null;
-  if (val instanceof Date) return val;
+  
+  // 1. Objeto Date (SheetJS lee celdas tipo Date como UTC 00:00)
+  if (val instanceof Date) {
+    // Al extraer año/mes/día, DEBEMOS usar los métodos UTC para evitar el desfase local
+    return new Date(val.getUTCFullYear(), val.getUTCMonth(), val.getUTCDate());
+  }
 
+  // 2. Serial Numérico de Excel
   if (typeof val === 'number') {
-    // Excel Serial Date: 25569 es el offset para el Epoch de Unix
-    return new Date(Math.round((val - 25569) * 86400 * 1000));
+    // Calculamos el Epoch UTC y luego extraemos sus componentes para crear una fecha Local
+    const dateUTC = new Date(Math.round((val - 25569) * 86400 * 1000));
+    return new Date(dateUTC.getUTCFullYear(), dateUTC.getUTCMonth(), dateUTC.getUTCDate());
   }
 
   if (typeof val === 'string') {
     const s = val.trim();
     if (!s) return null;
 
-    // 1. Intentar dd/mm/yyyy o dd-mm-yyyy (Prioridad solicitada por el usuario)
+    // 3. Intentar dd/mm/yyyy o dd-mm-yyyy (Prioridad solicitada por el usuario)
     const dmyMatch = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
     if (dmyMatch) {
       const day = parseInt(dmyMatch[1], 10);
@@ -159,15 +166,21 @@ const parseExcelDate = (val) => {
       return new Date(year, month, day);
     }
 
-    // 2. Intentar yyyy-mm-dd (ISO)
+    // 4. Intentar yyyy-mm-dd (ISO)
     const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
     if (isoMatch) {
-      return new Date(s); // ISO es consistente
+      // new Date('YYYY-MM-DD') se interpreta como UTC por defecto y causa desfase.
+      // Forzamos interpretación local:
+      const y = parseInt(isoMatch[1], 10);
+      const m = parseInt(isoMatch[2], 10) - 1;
+      const d = parseInt(isoMatch[3], 10);
+      return new Date(y, m, d);
     }
 
-    // Fallback genérico si nada coincide
+    // Fallback genérico (Intentar tratar como local)
     const fallback = new Date(s);
-    return isNaN(fallback.getTime()) ? null : fallback;
+    if (isNaN(fallback.getTime())) return null;
+    return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
   }
   return null;
 };
@@ -503,7 +516,7 @@ const reset = () => {
           </thead>
           <tbody>
             <tr v-for="(m, idx) in movements.slice(0, 50)" :key="idx">
-              <td>{{ new Date(m.date).toLocaleDateString() }}</td>
+              <td>{{ m.date.split(' ')[0].split('-').reverse().join('/') }}</td>
               <td>{{ m.periodDisplay }}</td>
               <td>{{ m.description }}</td>
               <td class="text-amount">${{ m.amount.toFixed(2) }}</td>

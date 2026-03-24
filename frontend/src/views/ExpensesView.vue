@@ -138,8 +138,10 @@ const saveExpenseEdit = async () => {
         <tbody>
           <tr v-for="expense in expensesData" :key="expense.id">
             <td>
-              <span class="d-text">{{ new Date(expense.date).toLocaleDateString() }}</span>
-              <span class="muted date-time">{{ new Date(expense.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</span>
+              <span class="d-text">{{ expense.date.split(' ')[0].split('-').reverse().join('/') }}</span>
+              <span class="muted date-time" v-if="expense.date.includes(' ')">
+                {{ expense.date.split(' ')[1].slice(0, 5) }}
+              </span>
             </td>
             <td class="font-bold">{{ expense.description }}</td>
             <td>

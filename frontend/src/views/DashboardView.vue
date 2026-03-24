@@ -236,7 +236,7 @@ const saveExpense = async () => {
             </thead>
             <tbody>
               <tr v-for="gasto in dashboardData.movimientos_recientes" :key="gasto.id">
-                <td>{{ new Date(gasto.date).toLocaleDateString() }}</td>
+                <td>{{ gasto.date.split(' ')[0].split('-').reverse().join('/') }}</td>
                 <td class="font-bold">{{ gasto.description }}</td>
                 <td class="text-emerald font-bold">${{ parseFloat(gasto.amount).toFixed(2) }}</td>
                 <td>{{ gasto.created_by_name }}</td>
