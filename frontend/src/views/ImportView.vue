@@ -117,6 +117,42 @@ const autoSuggestMapping = () => {
   });
 };
 
+// --- ROBUST DATE PARSING ---
+const parseExcelDate = (val) => {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+
+  if (typeof val === 'number') {
+    // Excel Serial Date: 25569 es el offset para el Epoch de Unix
+    return new Date(Math.round((val - 25569) * 86400 * 1000));
+  }
+
+  if (typeof val === 'string') {
+    const s = val.trim();
+    if (!s) return null;
+
+    // 1. Intentar dd/mm/yyyy o dd-mm-yyyy (Prioridad solicitada por el usuario)
+    const dmyMatch = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+    if (dmyMatch) {
+      const day = parseInt(dmyMatch[1], 10);
+      const month = parseInt(dmyMatch[2], 10) - 1; // 0-indexed
+      const year = parseInt(dmyMatch[3], 10);
+      return new Date(year, month, day);
+    }
+
+    // 2. Intentar yyyy-mm-dd (ISO)
+    const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (isoMatch) {
+      return new Date(s); // ISO es consistente
+    }
+
+    // Fallback genérico si nada coincide
+    const fallback = new Date(s);
+    return isNaN(fallback.getTime()) ? null : fallback;
+  }
+  return null;
+};
+
 // --- STEP 4: PREVIEW & VALIDATION ---
 const validateAndPreview = () => {
   const results = [];
@@ -142,16 +178,11 @@ const validateAndPreview = () => {
       return;
     }
 
-    // Procesar fecha
-    let dateObj = new Date(dateRaw);
-    if (isNaN(dateObj.getTime())) {
-      // Intentar Excel date serial if numeric
-      if (typeof dateRaw === 'number') {
-        dateObj = new Date((dateRaw - 25569) * 86400 * 1000);
-      } else {
-        summary.invalidDate++;
-        return;
-      }
+    // Procesar fecha robustamente
+    const dateObj = parseExcelDate(dateRaw);
+    if (!dateObj) {
+      summary.invalidDate++;
+      return;
     }
 
     const year = dateObj.getFullYear();
