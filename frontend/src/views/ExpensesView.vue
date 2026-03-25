@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
 
 const authStore = useAuthStore();
+const router = useRouter();
 const expensesData = ref([]);
 const usersList = ref([]);
 const loading = ref(true);
@@ -111,7 +113,12 @@ const saveExpenseEdit = async () => {
         <button @click="jumpToNext" class="btn-arrow">&rarr;</button>
       </div>
       
-      <p class="subtitle hide-mobile">Desglose estricto de auditoría familiar.</p>
+      <div class="header-actions">
+        <button @click="$router.push('/import')" class="btn-secondary">
+          <span>Importar Excel</span>
+        </button>
+        <p class="subtitle hide-mobile">Desglose estricto de auditoría familiar.</p>
+      </div>
     </div>
 
     <!-- Contenido Grilla -->
@@ -211,11 +218,14 @@ const saveExpenseEdit = async () => {
 
 <style scoped>
 /* NAVIGATOR HEAD REUSED */
-.header-navigator { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; background: #1A1C1D; padding: 1rem 1.5rem; border-radius: 12px; border: 1px solid #333; }
-.month-controls { display: flex; align-items: center; gap: 1rem; }
+.header-navigator { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; background: #1A1C1D; padding: 1rem 1.5rem; border-radius: 12px; border: 1px solid #333; flex-wrap: wrap; gap: 1rem; }
+.month-controls { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
 .month-controls h2 { margin: 0; font-size: 1.3rem; color: #FFF; font-weight: 800; min-width: 190px; text-align: center; }
 .btn-arrow { background: #111; color: #A0A5AA; border: 1px solid #333; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; cursor: pointer; transition: 0.2s; }
 .btn-arrow:hover { color: #FFF; border-color: #555; }
+.header-actions { display: flex; align-items: center; gap: 1.5rem; }
+.btn-secondary { background: transparent; color: #00FF66; border: 1px solid #00FF66; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 0.85rem; }
+.btn-secondary:hover { background: rgba(0, 255, 102, 0.1); }
 .subtitle { margin: 0; color: #7E8286; font-size: 0.9rem; }
 @media (max-width: 768px) { .hide-mobile { display: none; } }
 

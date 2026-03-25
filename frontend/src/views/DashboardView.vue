@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
 
 const authStore = useAuthStore();
+const router = useRouter();
 const dashboardData = ref(null);
 const usersData = ref([]);
 const loading = ref(true);
@@ -151,11 +153,16 @@ const saveExpense = async () => {
         </span>
       </div>
       
-      <button v-if="dashboardData?.resumen_general?.status === 'open'" 
-              @click="openExpenseModal" 
-              class="btn-primary flex-btn">
-        <span class="icon-plus">+</span><span>Registrar</span>
-      </button>
+      <div class="header-actions-group">
+        <button @click="$router.push('/import')" class="btn-secondary flex-btn">
+          <span class="icon-import">📥</span><span>Importar</span>
+        </button>
+        <button v-if="dashboardData?.resumen_general?.status === 'open'" 
+                @click="openExpenseModal" 
+                class="btn-primary flex-btn">
+          <span class="icon-plus">+</span><span>Registrar</span>
+        </button>
+      </div>
     </div>
 
     <!-- Error State -->
@@ -309,7 +316,10 @@ const saveExpense = async () => {
 .status-chip { padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-left: 0.5rem; }
 .status-chip.open { background-color: rgba(0, 255, 102, 0.15); color: #00FF66; }
 .status-chip.closed { background-color: rgba(255, 255, 255, 0.1); color: #999; }
-.flex-btn { display: flex; align-items: center; gap: 0.5rem; justify-content: center; }
+.header-actions-group { display: flex; gap: 0.75rem; align-items: center; }
+.btn-secondary { background: transparent; color: #A0A5AA; border: 1px solid #333; font-weight: 600; padding: 0.8rem 1.2rem; border-radius: 8px; cursor: pointer; font-size: 0.9rem; transition: 0.2s; }
+.btn-secondary:hover { background: #222; color: #FFF; border-color: #555; }
+.icon-import { font-size: 1.1rem; }
 .icon-plus { font-size: 1.2rem; line-height: 1; }
 
 .empty-state { text-align: center; padding: 4rem 2rem; background-color: #1A1C1D; border: 1px dashed #333; border-radius: 12px; color: #7E8286; }
