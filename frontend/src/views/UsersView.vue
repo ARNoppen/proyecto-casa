@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import api from '../api/axios';
+import { formatCurrency } from '../utils/formatters';
 
 const users = ref([]);
 const loading = ref(true);
@@ -143,7 +144,7 @@ const saveUser = async () => {
               <span :class="['status-dot', user.is_active ? 'active' : 'inactive']"></span>
               {{ user.is_active ? 'Activo' : 'Baja' }}
             </td>
-            <td>${{ user.default_contribution }}</td>
+            <td>${{ formatCurrency(user.default_contribution) }}</td>
             <td>
               <button @click="openEditUserModal(user)" class="btn-text">Editar</button>
             </td>

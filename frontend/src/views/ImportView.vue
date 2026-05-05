@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import * as XLSX from 'xlsx';
 import api from '../api/axios';
 import { useRouter } from 'vue-router';
+import { formatCurrency } from '../utils/formatters';
 
 const router = useRouter();
 const users = ref([]);
@@ -525,7 +526,7 @@ const reset = () => {
               <td>{{ m.date.split(' ')[0].split('-').reverse().join('/') }}</td>
               <td>{{ m.periodDisplay }}</td>
               <td>{{ m.description }}</td>
-              <td class="text-amount">${{ m.amount.toFixed(2) }}</td>
+              <td class="text-amount">${{ formatCurrency(m.amount) }}</td>
               <td>{{ users.find(u => u.id === m.assigned_to_user_id)?.name }}</td>
             </tr>
           </tbody>

@@ -1,19 +1,28 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted, computed, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
+import { formatCurrency } from '../utils/formatters';
 
 const authStore = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 const dashboardData = ref(null);
 const usersData = ref([]);
 const loading = ref(true);
 const error = ref(null);
 
-// Controles Rango de Fecha por defecto: Mes Actual
-const selectedMonth = ref(new Date().getMonth() + 1);
-const selectedYear = ref(new Date().getFullYear());
+// Controles Rango de Fecha: Inicializa desde Query o Mes Actual
+const selectedMonth = ref(route.query.month ? Number(route.query.month) : new Date().getMonth() + 1);
+const selectedYear = ref(route.query.year ? Number(route.query.year) : new Date().getFullYear());
+
+// Escuchar cambios en la URL para actualizar el dashboard si navegamos por períodos
+watch(() => route.query, (newQuery) => {
+  if (newQuery.month) selectedMonth.value = Number(newQuery.month);
+  if (newQuery.year) selectedYear.value = Number(newQuery.year);
+  loadDashboard();
+}, { deep: true });
 
 // Helper para obtener fecha local en formato YYYY-MM-DDTHH:mm para inputs
 const getLocalISOString = (date = new Date()) => {
@@ -149,7 +158,7 @@ const saveExpense = async () => {
         
         <span v-if="dashboardData?.resumen_general" 
               :class="['status-chip', dashboardData.resumen_general.status]">
-          {{ dashboardData.resumen_general.status }}
+          {{ dashboardData.resumen_general.status === 'open' ? 'Abierto' : 'Cerrado' }}
         </span>
       </div>
       
@@ -180,15 +189,15 @@ const saveExpense = async () => {
       <section class="summary-cards">
         <div class="card bg-dark">
           <p class="label">Presupuesto Hogar</p>
-          <h3>${{ computedTotalBudget.toFixed(2) }}</h3>
+          <h3>${{ formatCurrency(computedTotalBudget) }}</h3>
         </div>
         <div class="card bg-dark">
           <p class="label">Gastado a la Fecha</p>
-          <h3>${{ computedTotalExpenses.toFixed(2) }}</h3>
+          <h3>${{ formatCurrency(computedTotalExpenses) }}</h3>
         </div>
         <div class="card" :class="computedRemainingOverall >= 0 ? 'bg-success' : 'bg-danger'">
           <p class="label">Saldo Restante o Exceso</p>
-          <h3>${{ computedRemainingOverall >= 0 ? computedRemainingOverall.toFixed(2) : Math.abs(computedRemainingOverall).toFixed(2) + ' (Excedido)' }}</h3>
+          <h3>${{ computedRemainingOverall >= 0 ? formatCurrency(computedRemainingOverall) : formatCurrency(Math.abs(computedRemainingOverall)) + ' (Excedido)' }}</h3>
         </div>
       </section>
 
@@ -203,7 +212,7 @@ const saveExpense = async () => {
               <div class="m-avatar">{{ miembro.name.charAt(0).toUpperCase() }}</div>
               <div class="m-info">
                 <h4>{{ miembro.name }}</h4>
-                <p class="m-target">Base/Meta: <b>${{ miembro.expected_contribution.toFixed(2) }}</b></p>
+                <p class="m-target">Base/Meta: <b>${{ formatCurrency(miembro.expected_contribution) }}</b></p>
               </div>
             </div>
 
@@ -214,11 +223,11 @@ const saveExpense = async () => {
             <div class="m-footer">
               <div class="m-stat">
                 <span class="muted">Gastó</span>
-                <span class="val">$ {{ miembro.accumulated.toFixed(2) }}</span>
+                <span class="val">$ {{ formatCurrency(miembro.accumulated) }}</span>
               </div>
               <div class="m-stat rt">
                 <span class="muted">Le falta</span>
-                <span :class="['val', miembro.remaining >= 0 ? 'warn' : 'exito']">$ {{ miembro.remaining.toFixed(2) }}</span>
+                <span :class="['val', miembro.remaining >= 0 ? 'warn' : 'exito']">$ {{ formatCurrency(miembro.remaining) }}</span>
               </div>
             </div>
 
@@ -245,7 +254,7 @@ const saveExpense = async () => {
               <tr v-for="gasto in dashboardData.movimientos_recientes" :key="gasto.id">
                 <td>{{ gasto.date.split(' ')[0].split('-').reverse().join('/') }}</td>
                 <td class="font-bold">{{ gasto.description }}</td>
-                <td class="text-emerald font-bold">${{ parseFloat(gasto.amount).toFixed(2) }}</td>
+                <td class="text-emerald font-bold">${{ formatCurrency(gasto.amount) }}</td>
                 <td>{{ gasto.created_by_name }}</td>
                 <td>{{ gasto.assigned_to_name }}</td>
               </tr>

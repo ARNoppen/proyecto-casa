@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
+import { formatCurrency } from '../utils/formatters';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -155,7 +156,7 @@ const saveExpenseEdit = async () => {
               <span class="badge badge-assigned">{{ expense.assigned_to_name }}</span>
             </td>
             <td class="muted">{{ expense.created_by_name }}</td>
-            <td class="text-emerald font-bold">${{ parseFloat(expense.amount).toFixed(2) }}</td>
+            <td class="text-emerald font-bold">${{ formatCurrency(expense.amount) }}</td>
             <td>
               <div class="action-buttons" v-if="canEditExpense(expense)">
                 <button @click="openEditModal(expense)" class="btn-icon text-info" title="Editar">✏️</button>

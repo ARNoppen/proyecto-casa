@@ -1,12 +1,19 @@
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
+import { formatCurrency } from '../utils/formatters';
 
+const router = useRouter();
 const authStore = useAuthStore();
 const monthsList = ref([]);
 const loading = ref(true);
 const error = ref(null);
+
+const goToDashboard = (month, year) => {
+  router.push({ path: '/', query: { month, year } });
+};
 
 const showModal = ref(false);
 const submitting = ref(false);
@@ -107,20 +114,20 @@ const toggleMonthStatus = async (id, currentStatus) => {
     <div v-else-if="error" class="error-banner">{{ error }}</div>
     
     <div v-else class="cards-grid">
-      <div v-for="month in monthsList" :key="month.id" class="month-card">
+      <div v-for="month in monthsList" :key="month.id" class="month-card clickable" @click="goToDashboard(month.month, month.year)">
         <div class="card-top">
           <h4>
             Mes {{ month.month }} <span class="dim">/</span> {{ month.year }}
           </h4>
-          <button v-if="authStore.isAdmin" @click="toggleMonthStatus(month.id, month.status)" :class="['status-badge', 'status-toggle', month.status]">
-            {{ month.status }}
+          <button v-if="authStore.isAdmin" @click.stop="toggleMonthStatus(month.id, month.status)" :class="['status-badge', 'status-toggle', month.status]">
+            {{ month.status === 'open' ? 'Abierto' : 'Cerrado' }}
           </button>
-          <span v-else :class="['status-badge', month.status]">{{ month.status }}</span>
+          <span v-else :class="['status-badge', month.status]">{{ month.status === 'open' ? 'Abierto' : 'Cerrado' }}</span>
         </div>
         
         <div class="card-bottom">
           <span class="label">Presupuesto Consolidado:</span>
-          <span class="value">${{ month.total_budget }}</span>
+          <span class="value">${{ formatCurrency(month.total_budget) }}</span>
         </div>
       </div>
       
@@ -202,6 +209,8 @@ const toggleMonthStatus = async (id, currentStatus) => {
 .month-card {
   background-color: #1A1C1D; border-radius: 12px; padding: 1.5rem; border: 1px solid #333; transition: transform 0.2s, border-color 0.2s;
 }
+.month-card.clickable { cursor: pointer; }
+.month-card.clickable:hover { border-color: #00FF66; transform: translateY(-2px); }
 .month-card:hover { border-color: #555; }
 
 .card-top {
