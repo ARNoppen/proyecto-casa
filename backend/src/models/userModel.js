@@ -33,10 +33,19 @@ const update = async (id, user) => {
     return result.rowCount;
 };
 
+const updatePassword = async (id, password_hash) => {
+    const result = await pool.query(
+        'UPDATE users SET password_hash = $1 WHERE id = $2',
+        [password_hash, id]
+    );
+    return result.rowCount;
+};
+
 module.exports = {
     findByEmail,
     findById,
     findAll,
     create,
-    update
+    update,
+    updatePassword
 };

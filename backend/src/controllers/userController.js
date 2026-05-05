@@ -55,4 +55,27 @@ const updateUser = async (req, res) => {
     }
 };
 
-module.exports = { getAllUsers, createUser, updateUser };
+const changeUserPassword = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { password } = req.body;
+        
+        if (!password) {
+            return res.status(400).json({ error: 'La nueva contraseña es requerida' });
+        }
+
+        const existingUser = await UserModel.findById(id);
+        if (!existingUser) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        const password_hash = await bcrypt.hash(password, 10);
+        await UserModel.updatePassword(id, password_hash);
+
+        res.json({ message: 'Contraseña actualizada correctamente' });
+    } catch (error) {
+        res.status(500).json({ error: 'Error al cambiar la contraseña' });
+    }
+};
+
+module.exports = { getAllUsers, createUser, updateUser, changeUserPassword };

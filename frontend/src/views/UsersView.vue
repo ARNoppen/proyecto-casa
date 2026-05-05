@@ -75,7 +75,6 @@ const saveUser = async () => {
   
   try {
     if (isEditing.value) {
-      // Backend (Fase 2) provee PUT general. No provee PUT de cambio de clave específico aún. Faltaría iterarlo.
       await api.put(`/users/${form.value.id}`, {
         name: form.value.name,
         email: form.value.email,
@@ -83,6 +82,12 @@ const saveUser = async () => {
         is_active: form.value.is_active,
         default_contribution: form.value.default_contribution
       });
+      
+      if (form.value.password) {
+        await api.put(`/users/${form.value.id}/password`, {
+          password: form.value.password
+        });
+      }
     } else {
       await api.post('/users', {
         name: form.value.name,
@@ -166,13 +171,9 @@ const saveUser = async () => {
               <input v-model="form.email" type="email" required />
             </div>
 
-            <!-- Mostrar Password solo a la creación. (Reset de endpoint backend sigue pendiente) -->
-            <div v-if="!isEditing" class="form-group">
-              <label>Contraseña Acceso</label>
-              <input v-model="form.password" type="password" required />
-            </div>
-            <div v-if="isEditing" class="form-group empty-state-pw">
-              <span class="muted">⚠️ El reseteo de clave no está habilitado en API aún.</span>
+            <div class="form-group">
+              <label>{{ isEditing ? 'Nueva Contraseña (Opcional)' : 'Contraseña Acceso' }}</label>
+              <input v-model="form.password" type="password" :required="!isEditing" :placeholder="isEditing ? 'Escribí para cambiar clave' : 'Obligatorio'" />
             </div>
 
             <div class="form-group">

@@ -6,8 +6,8 @@ import { useAuthStore } from '../stores/authStore';
 const router = useRouter();
 const authStore = useAuthStore();
 
-const email = ref('admin@casa.com');
-const password = ref('admin123');
+const email = ref('');
+const password = ref('');
 
 const handleLogin = async () => {
   const success = await authStore.login(email.value, password.value);
@@ -19,8 +19,8 @@ const handleLogin = async () => {
 
 <template>
   <div class="login-box">
-    <h2>Ingresar al sistema</h2>
-    <p class="subtitle">Solo miembros de la familia autorizados.</p>
+    <h2>Bienvenido a Proyecto Casa</h2>
+    <p class="subtitle">Ingresá tus credenciales para acceder a la gestión familiar.</p>
 
     <div v-if="authStore.error" class="error-banner">
       {{ authStore.error }}
@@ -32,7 +32,7 @@ const handleLogin = async () => {
         <input 
           v-model="email" 
           type="email" 
-          placeholder="ejemplo@casa.com" 
+          placeholder="Escribí tu correo" 
           required 
         />
       </div>
@@ -42,13 +42,13 @@ const handleLogin = async () => {
         <input 
           v-model="password" 
           type="password" 
-          placeholder="••••••••" 
+          placeholder="Escribí tu contraseña" 
           required 
         />
       </div>
 
       <button type="submit" class="btn-primary" :disabled="authStore.loading">
-        {{ authStore.loading ? 'Ingresando...' : 'Iniciar Sesión' }}
+        {{ authStore.loading ? 'Validando...' : 'Acceder al Panel' }}
       </button>
     </form>
   </div>

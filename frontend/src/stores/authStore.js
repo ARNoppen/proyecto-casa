@@ -28,7 +28,13 @@ export const useAuthStore = defineStore('auth', {
         
         return true;
       } catch (err) {
-        this.error = err.response?.data?.error || 'Error al iniciar sesión';
+        if (!err.response) {
+          this.error = 'No se pudo conectar con el servidor. Intentá de nuevo.';
+        } else if (err.response.status === 401) {
+          this.error = 'Correo o contraseña incorrectos.';
+        } else {
+          this.error = err.response?.data?.error || 'Error al iniciar sesión';
+        }
         return false;
       } finally {
         this.loading = false;
