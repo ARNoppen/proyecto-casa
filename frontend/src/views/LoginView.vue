@@ -20,7 +20,6 @@ const handleLogin = async () => {
 <template>
   <div class="login-box">
     <h2>Bienvenido a Proyecto Casa</h2>
-    <p class="subtitle">Ingresá tus credenciales para acceder a la gestión familiar.</p>
 
     <div v-if="authStore.error" class="error-banner">
       {{ authStore.error }}
@@ -56,14 +55,8 @@ const handleLogin = async () => {
 
 <style scoped>
 .login-box h2 {
-  margin: 0 0 0.25rem 0;
+  margin: 0 0 1.5rem 0;
   color: #fff;
-}
-
-.subtitle {
-  color: #7E8286;
-  font-size: 0.9rem;
-  margin-bottom: 2rem;
 }
 
 .error-banner {
