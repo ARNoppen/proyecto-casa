@@ -20,8 +20,7 @@ const routes = [
       {
         path: '',
         name: 'Login',
-        component: LoginView,
-        meta: { guestOnly: true }
+        component: LoginView
       }
     ]
   },
@@ -85,9 +84,6 @@ router.beforeEach(async (to, from, next) => {
   if (to.meta.requiresAuth && !isAuthenticated) {
     // Si la ruta requiere auth y no lo está, echalo al login
     next({ name: 'Login' });
-  } else if (to.meta.guestOnly && isAuthenticated) {
-    // Si la ruta es solo para invitados y ya entró, llevalo al dashboard
-    next({ name: 'Dashboard' });
   } else if (to.meta.requiresAdmin && !isAdmin) {
     // Rutas protegidas exclusivamente para rol admin
     next({ name: 'Dashboard' });
