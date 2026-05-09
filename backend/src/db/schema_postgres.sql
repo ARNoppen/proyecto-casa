@@ -49,3 +49,34 @@ CREATE TABLE IF NOT EXISTS expenses (
 INSERT INTO users (name, email, password_hash, role, is_active, default_contribution) 
 VALUES ('Admin Familia', 'admin@casa.com', '$2b$10$ZdClgtj9aeJWWDtRQAjnOeWkHeGkEa65IA.A39szeoiqL.PUc4Dum', 'admin', TRUE, 0.00)
 ON CONFLICT (email) DO NOTHING;
+-- 5. Tabla de Préstamos
+CREATE TABLE IF NOT EXISTS loans (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    entity VARCHAR(255),
+    total_amount DECIMAL(15,2) NOT NULL,
+    installments_count INTEGER NOT NULL,
+    start_date DATE NOT NULL,
+    due_day INTEGER NOT NULL, -- Día del mes que vence (1-31)
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'completed', 'paused')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    updated_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- 6. Tabla de Pagos de Préstamos
+CREATE TABLE IF NOT EXISTS loan_payments (
+    id SERIAL PRIMARY KEY,
+    loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+    installment_number INTEGER, -- Opcional, para indicar qué cuota se está pagando
+    payment_date DATE NOT NULL,
+    amount DECIMAL(15,2) NOT NULL,
+    created_by_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    assigned_to_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    payment_method VARCHAR(100),
+    comment TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
+);

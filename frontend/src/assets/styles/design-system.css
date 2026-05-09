@@ -1,0 +1,127 @@
+/* Botones Estándar */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  font-family: inherit;
+  text-decoration: none;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Variantes */
+.btn-primary {
+  background-color: #00FF66;
+  color: #000;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #00E65C;
+  box-shadow: 0 0 15px rgba(0, 255, 102, 0.2);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: #A0A5AA;
+  border-color: #333;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #24272A;
+  color: #FFF;
+  border-color: #555;
+}
+
+.btn-danger {
+  background-color: rgba(255, 74, 74, 0.1);
+  color: #FF4A4A;
+  border-color: rgba(255, 74, 74, 0.2);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #FF4A4A;
+  color: #FFF;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: #7E8286;
+  border: none;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: #FFF;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.btn-icon {
+  padding: 0.5rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background-color: #24272A;
+  color: #A0A5AA;
+  border: 1px solid #333;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background-color: #333;
+  color: #FFF;
+  border-color: #555;
+}
+
+.btn-icon.danger {
+  color: #FF4A4A;
+}
+
+.btn-icon.danger:hover:not(:disabled) {
+  background-color: #FF4A4A;
+  color: #FFF;
+}
+
+/* Tamaños */
+.btn-sm {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+/* Modales (Global) */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background: #1A1C1D;
+  padding: 2.5rem;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 480px;
+  border: 1px solid #333;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}

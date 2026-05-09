@@ -16,3 +16,17 @@ export const formatCurrency = (value) => {
     maximumFractionDigits: 2
   }).format(num);
 };
+
+/**
+ * Normaliza un valor monetario a un número con máximo 2 decimales.
+ * Útil para inputs y cálculos antes de enviar al backend.
+ * 
+ * @param {Number|String} value 
+ * @returns {Number}
+ */
+export const normalizeMoney = (value) => {
+  if (value === null || value === undefined || value === '') return 0;
+  const num = typeof value === 'string' ? parseFloat(value.replace(',', '.')) : value;
+  if (isNaN(num)) return 0;
+  return Math.round(num * 100) / 100;
+};

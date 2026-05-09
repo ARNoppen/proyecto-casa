@@ -3,7 +3,8 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, normalizeMoney } from '../utils/formatters';
+import ConfirmModal from '../components/ConfirmModal.vue';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -14,6 +15,16 @@ const error = ref(null);
 
 const selectedMonth = ref(new Date().getMonth() + 1);
 const selectedYear = ref(new Date().getFullYear());
+
+// Modals de Confirmación
+const confirmModal = ref({
+  show: false,
+  title: '',
+  message: '',
+  onConfirm: null,
+  type: 'primary',
+  isAlert: false
+});
 
 // Variables Modal de Edición
 const showEditModal = ref(false);
@@ -27,7 +38,6 @@ const loadExpenses = async () => {
     const { data } = await api.get(`/expenses?month=${selectedMonth.value}&year=${selectedYear.value}`);
     expensesData.value = data;
     
-    // Solo cargo catálogo base de usuarios para el selector del Modal si aún no lo traje
     if (usersList.value.length === 0) {
       const uRes = await api.get('/users');
       usersList.value = uRes.data;
@@ -60,13 +70,11 @@ const canEditExpense = (expense) => {
 };
 
 const openEditModal = (expense) => {
-  // El backend devuelve YYYY-MM-DD HH:mm:ss o similar.
-  // Reemplazamos espacio por T y cortamos para el input datetime-local.
   const localDate = expense.date.replace(' ', 'T').slice(0, 16);
 
   editForm.value = {
     id: expense.id,
-    amount: expense.amount,
+    amount: Math.abs(expense.amount), // El backend devuelve negativo, lo pasamos a positivo para el input
     description: expense.description,
     date: localDate,
     assigned_to_user_id: expense.assigned_to_user_id
@@ -74,21 +82,27 @@ const openEditModal = (expense) => {
   showEditModal.value = true;
 };
 
-const deleteExpense = async (expense) => {
-  if (!confirm(`¿Estás seguro de que quieres eliminar el gasto "${expense.description}" por $${expense.amount}?`)) return;
-  try {
-    await api.delete(`/expenses/${expense.id}`);
-    loadExpenses(); // Refrescar grilla
-  } catch (err) {
-    alert(err.response?.data?.error || 'No se pudo eliminar el gasto (Revisar que el mes siga abierto).');
-  }
+const confirmDeleteExpense = (expense) => {
+  showConfirm(
+    'Eliminar Ticket',
+    `¿Estás seguro de que quieres eliminar el gasto "${expense.description}" por $${formatCurrency(expense.amount)}?`,
+    async () => {
+      try {
+        await api.delete(`/expenses/${expense.id}`);
+        loadExpenses();
+      } catch (err) {
+        showAlert('Error', err.response?.data?.error || 'No se pudo eliminar el gasto.');
+      }
+    },
+    'danger'
+  );
 };
 
 const saveExpenseEdit = async () => {
   submitting.value = true;
   try {
     await api.put(`/expenses/${editForm.value.id}`, {
-      amount: editForm.value.amount,
+      amount: normalizeMoney(editForm.value.amount),
       description: editForm.value.description,
       date: editForm.value.date.replace('T', ' '),
       assigned_to_user_id: editForm.value.assigned_to_user_id
@@ -96,10 +110,24 @@ const saveExpenseEdit = async () => {
     showEditModal.value = false;
     loadExpenses();
   } catch (err) {
-    alert(err.response?.data?.error || 'No se pudo guardar la edición (Revisa permisos o apertura de mes).');
+    showAlert('Error', err.response?.data?.error || 'No se pudo guardar la edición.');
   } finally {
     submitting.value = false;
   }
+};
+
+// Helpers de Confirmación
+const showConfirm = (title, message, onConfirm, type = 'primary') => {
+  confirmModal.value = { show: true, title, message, onConfirm, type, isAlert: false };
+};
+
+const showAlert = (title, message) => {
+  confirmModal.value = { show: true, title, message, onConfirm: () => confirmModal.value.show = false, type: 'primary', isAlert: true };
+};
+
+const handleConfirm = () => {
+  if (confirmModal.value.onConfirm) confirmModal.value.onConfirm();
+  confirmModal.value.show = false;
 };
 </script>
 
@@ -115,7 +143,7 @@ const saveExpenseEdit = async () => {
       </div>
       
       <div class="header-actions">
-        <button @click="$router.push('/import')" class="btn-secondary">
+        <button @click="$router.push('/import')" class="btn btn-secondary">
           <span>Importar Excel</span>
         </button>
         <p class="subtitle hide-mobile">Desglose estricto de auditoría familiar.</p>
@@ -123,7 +151,10 @@ const saveExpenseEdit = async () => {
     </div>
 
     <!-- Contenido Grilla -->
-    <div v-if="loading" class="loading">Cargando tickets...</div>
+    <div v-if="loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Cargando tickets...</p>
+    </div>
     <div v-else-if="error" class="error-banner">{{ error }}</div>
     
     <div v-else-if="expensesData.length === 0" class="empty-state">
@@ -159,8 +190,8 @@ const saveExpenseEdit = async () => {
             <td class="text-emerald font-bold">${{ formatCurrency(expense.amount) }}</td>
             <td>
               <div class="action-buttons" v-if="canEditExpense(expense)">
-                <button @click="openEditModal(expense)" class="btn-icon text-info" title="Editar">✏️</button>
-                <button @click="deleteExpense(expense)" class="btn-icon text-danger" title="Borrar">🗑️</button>
+                <button @click="openEditModal(expense)" class="btn-icon" title="Editar">✏️</button>
+                <button @click="confirmDeleteExpense(expense)" class="btn-icon danger" title="Borrar">🗑️</button>
               </div>
               <span v-else class="muted text-small">Bloqueado</span>
             </td>
@@ -171,7 +202,7 @@ const saveExpenseEdit = async () => {
 
     <!-- MODAL EDICIÓN DE GASTO -->
     <div v-if="showEditModal" class="modal-backdrop">
-      <div class="modal">
+      <div class="modal-content">
         <h3>Editar Ticket de Gasto</h3>
         <p class="modal-sub">Se modificará sobre la base de datos central inmediatamente.</p>
         
@@ -198,7 +229,6 @@ const saveExpenseEdit = async () => {
             <div class="form-group">
               <label>Cambiar de Integrante Responsable</label>
               <select v-model="editForm.assigned_to_user_id" required>
-                <!-- Renderiza el catálogo crudo -->
                 <option v-for="user in usersList" :key="user.id" :value="user.id">
                   {{ user.name }}
                 </option>
@@ -207,17 +237,30 @@ const saveExpenseEdit = async () => {
           </div>
 
           <div class="modal-actions">
-            <button type="button" @click="showEditModal = false" class="btn-cancel">Descartar</button>
-            <button type="submit" class="btn-primary" :disabled="submitting">Aplicar Cambios</button>
+            <button type="button" @click="showEditModal = false" class="btn btn-secondary">Descartar</button>
+            <button type="submit" class="btn btn-primary" :disabled="submitting">Aplicar Cambios</button>
           </div>
         </form>
       </div>
     </div>
 
+    <!-- Modal de Confirmación Reutilizable -->
+    <ConfirmModal 
+      :show="confirmModal.show"
+      :title="confirmModal.title"
+      :message="confirmModal.message"
+      :type="confirmModal.type"
+      :isAlert="confirmModal.isAlert"
+      @confirm="handleConfirm"
+      @cancel="confirmModal.show = false"
+    />
+
   </div>
 </template>
 
 <style scoped>
+.expenses-view { color: #FFF; }
+
 /* NAVIGATOR HEAD REUSED */
 .header-navigator { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; background: #1A1C1D; padding: 1rem 1.5rem; border-radius: 12px; border: 1px solid #333; flex-wrap: wrap; gap: 1rem; }
 .month-controls { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
@@ -225,8 +268,6 @@ const saveExpenseEdit = async () => {
 .btn-arrow { background: #111; color: #A0A5AA; border: 1px solid #333; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; cursor: pointer; transition: 0.2s; }
 .btn-arrow:hover { color: #FFF; border-color: #555; }
 .header-actions { display: flex; align-items: center; gap: 1.5rem; }
-.btn-secondary { background: transparent; color: #00FF66; border: 1px solid #00FF66; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 0.85rem; }
-.btn-secondary:hover { background: rgba(0, 255, 102, 0.1); }
 .subtitle { margin: 0; color: #7E8286; font-size: 0.9rem; }
 @media (max-width: 768px) { .hide-mobile { display: none; } }
 
@@ -247,15 +288,9 @@ const saveExpenseEdit = async () => {
 
 /* ACTIONS */
 .action-buttons { display: flex; gap: 0.5rem; }
-.btn-icon { background: #2A2C2E; border: none; padding: 0.5rem; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-.btn-icon:hover { transform: translateY(-2px); }
 .text-small { font-size: 0.8rem; }
 
-/* MODALS (Globalized snippet) */
-.modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.modal { background: #1A1C1D; padding: 2.5rem; border-radius: 12px; width: 100%; max-width: 450px; border: 1px solid #333; box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 4px solid #00E5FF;}
-.modal h3 { margin: 0 0 0.25rem 0; color: #FFF; font-size: 1.4rem; }
-.modal-sub { margin: 0 0 1.5rem 0; color: #7E8286; font-size: 0.9rem; line-height: 1.4; }
+/* Modal Content Adjustments */
 .form-grid { display: flex; flex-direction: column; gap: 1.25rem; }
 .form-group label { display: block; margin-bottom: 0.4rem; color: #A0A5AA; font-size: 0.85rem; font-weight: 500; }
 .form-group input, .form-group select { width: 100%; padding: 0.8rem 1rem; background: #111; border: 1px solid #333; border-radius: 8px; color: #FFF; font-size: 1rem; }
@@ -265,9 +300,14 @@ const saveExpenseEdit = async () => {
 .currency-symbol { color: #00FF66; font-size: 1.4rem; font-weight: 800; }
 .big-input input { border: none !important; font-size: 1.4rem; font-weight: 700; padding-left: 0.5rem; outline: none !important;}
 .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2.5rem; }
-.btn-cancel { background: transparent; color: #A0A5AA; border: none; font-weight: 600; cursor: pointer; padding: 0.6rem 1rem; }
-.btn-cancel:hover { color: #FFF; }
-.btn-primary { background: #00FF66; color: #000; border: none; font-weight: 700; padding: 0.8rem 1.5rem; border-radius: 8px; cursor: pointer; font-size: 1rem; }
-.btn-primary:active { transform: scale(0.98); }
-.btn-primary:disabled { background: #24272A; color: #555; cursor: not-allowed; }
+
+.loading-state { display: flex; flex-direction: column; align-items: center; padding: 5rem; gap: 1rem; color: #7E8286; }
+.spinner { width: 40px; height: 40px; border: 4px solid rgba(0,255,102,0.1); border-top: 4px solid #00FF66; border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+@media (max-width: 600px) {
+  .header-navigator { flex-direction: column; align-items: stretch; text-align: center; }
+  .month-controls { justify-content: center; }
+  .month-controls h2 { min-width: auto; font-size: 1.1rem; }
+}
 </style>

@@ -3,7 +3,8 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, normalizeMoney } from '../utils/formatters';
+import ConfirmModal from '../components/ConfirmModal.vue';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -12,6 +13,9 @@ const dashboardData = ref(null);
 const usersData = ref([]);
 const loading = ref(true);
 const error = ref(null);
+
+// Modal de Alerta
+const alertModal = ref({ show: false, title: '', message: '' });
 
 // Controles Rango de Fecha: Inicializa desde Query o Mes Actual
 const selectedMonth = ref(route.query.month ? Number(route.query.month) : new Date().getMonth() + 1);
@@ -33,7 +37,7 @@ const getLocalISOString = (date = new Date()) => {
 // Variables Modal de Gastos
 const showExpenseModal = ref(false);
 const submittingExpense = ref(false);
-const expenseForm = ref({ amount: '-', description: '', date: getLocalISOString(), assigned_to_user_id: authStore.currentUser?.id });
+const expenseForm = ref({ amount: '', description: '', date: getLocalISOString(), assigned_to_user_id: authStore.currentUser?.id });
 
 const loadDashboard = async () => {
   loading.value = true;
@@ -60,17 +64,10 @@ const loadDashboard = async () => {
 const computedMembers = computed(() => {
   if (!dashboardData.value || !usersData.value) return [];
   
-  // Mapeamos sobre los usuarios activos para asegurar que todos tengan su card
   return usersData.value.map(user => {
-    // Buscamos el progreso devuelto por el backend para este usuario específico
     const progressObj = dashboardData.value.progreso_integrantes.find(p => Number(p.assigned_to_user_id) === Number(user.id));
-    
-    // Si el backend trae data (acumulado), la usamos; si no, es 0.
     const gastado = progressObj ? Math.abs(parseFloat(progressObj.accumulated)) : 0;
-    
-    // La meta la tomamos SIEMPRE del perfil del usuario (usersData) para asegurar que no se pierda
     const baseMeta = parseFloat(user.default_contribution);
-    
     const leFalta = baseMeta - gastado;
     const percentage = baseMeta > 0 ? (gastado / baseMeta) * 100 : 0;
     
@@ -118,7 +115,7 @@ onMounted(() => {
 // Gastos Action
 const openExpenseModal = () => {
   expenseForm.value = { 
-    amount: '-', 
+    amount: '', 
     description: '', 
     date: getLocalISOString(), 
     assigned_to_user_id: authStore.currentUser?.id 
@@ -130,7 +127,7 @@ const saveExpense = async () => {
   submittingExpense.value = true;
   try {
     await api.post('/expenses', {
-      amount: expenseForm.value.amount,
+      amount: normalizeMoney(expenseForm.value.amount),
       description: expenseForm.value.description,
       date: expenseForm.value.date.replace('T', ' '),
       assigned_to_user_id: expenseForm.value.assigned_to_user_id,
@@ -138,9 +135,13 @@ const saveExpense = async () => {
       year: selectedYear.value
     });
     showExpenseModal.value = false;
-    loadDashboard(); // Refrescar métricas automagicamente
+    loadDashboard();
   } catch (err) {
-    alert(err.response?.data?.error || 'No se pudo registrar.');
+    alertModal.value = { 
+        show: true, 
+        title: 'Error al registrar', 
+        message: err.response?.data?.error || 'No se pudo registrar el gasto.' 
+    };
   } finally {
     submittingExpense.value = false;
   }
@@ -163,12 +164,12 @@ const saveExpense = async () => {
       </div>
       
       <div class="header-actions-group">
-        <button @click="$router.push('/import')" class="btn-secondary flex-btn">
+        <button @click="$router.push('/import')" class="btn btn-secondary">
           <span class="icon-import">📥</span><span>Importar</span>
         </button>
         <button v-if="dashboardData?.resumen_general?.status === 'open'" 
                 @click="openExpenseModal" 
-                class="btn-primary flex-btn">
+                class="btn btn-primary">
           <span class="icon-plus">+</span><span>Registrar</span>
         </button>
       </div>
@@ -180,7 +181,10 @@ const saveExpense = async () => {
       <p>Asegúrate de cambiar a una fecha válida usando las flechas de navegación.</p>
     </div>
 
-    <div v-else-if="loading" class="loading">Sincronizando finanzas familiares...</div>
+    <div v-else-if="loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Sincronizando finanzas familiares...</p>
+    </div>
 
     <!-- Contenido Dashboard Reanimado -->
     <div v-else-if="dashboardData" class="dashboard-content">
@@ -269,7 +273,7 @@ const saveExpense = async () => {
 
     <!-- MODAL "REGISTRAR GASTO" -->
     <div v-if="showExpenseModal" class="modal-backdrop">
-      <div class="modal">
+      <div class="modal-content">
         <h3>Registrar un Nuevo Gasto</h3>
         <p class="modal-sub">El ticket será guardado en el período activo: {{ selectedMonth }} / {{ selectedYear }}</p>
         
@@ -279,7 +283,7 @@ const saveExpense = async () => {
               <label>Monto</label>
               <div class="input-money-wrapper">
                 <span class="currency-symbol">$</span>
-                <input v-model="expenseForm.amount" type="text" placeholder="-0.00" required autofocus />
+                <input v-model="expenseForm.amount" type="text" placeholder="0.00" required autofocus />
               </div>
             </div>
 
@@ -296,7 +300,6 @@ const saveExpense = async () => {
             <div class="form-group" v-if="dashboardData">
               <label>¿A nombre de quién se contabiliza?</label>
               <select v-model="expenseForm.assigned_to_user_id" required>
-                <!-- Renderiza a toda la gente activa del mes basada en las promesas resueltas -->
                 <option v-for="member in computedMembers" :key="member.assigned_to_user_id" :value="member.assigned_to_user_id">
                   {{ member.name }}
                 </option>
@@ -305,17 +308,28 @@ const saveExpense = async () => {
           </div>
 
           <div class="modal-actions">
-            <button type="button" @click="showExpenseModal = false" class="btn-cancel">Cancelar</button>
-            <button type="submit" class="btn-primary" :disabled="submittingExpense">Confirmar Gasto</button>
+            <button type="button" @click="showExpenseModal = false" class="btn btn-secondary">Cancelar</button>
+            <button type="submit" class="btn btn-primary" :disabled="submittingExpense">Confirmar Gasto</button>
           </div>
         </form>
       </div>
     </div>
 
+    <!-- Modal de Alerta Reutilizable -->
+    <ConfirmModal 
+      :show="alertModal.show"
+      :title="alertModal.title"
+      :message="alertModal.message"
+      :isAlert="true"
+      @confirm="alertModal.show = false"
+    />
+
   </div>
 </template>
 
 <style scoped>
+.dashboard-view { color: #FFF; }
+
 /* NAVIGATOR */
 .header-navigator { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; background: #1A1C1D; padding: 1rem 1.5rem; border-radius: 12px; border: 1px solid #333; flex-wrap: wrap; gap: 1rem; }
 .month-controls { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; justify-content: center; }
@@ -326,10 +340,6 @@ const saveExpense = async () => {
 .status-chip.open { background-color: rgba(0, 255, 102, 0.15); color: #00FF66; }
 .status-chip.closed { background-color: rgba(255, 255, 255, 0.1); color: #999; }
 .header-actions-group { display: flex; gap: 0.75rem; align-items: center; }
-.btn-secondary { background: transparent; color: #A0A5AA; border: 1px solid #333; font-weight: 600; padding: 0.8rem 1.2rem; border-radius: 8px; cursor: pointer; font-size: 0.9rem; transition: 0.2s; }
-.btn-secondary:hover { background: #222; color: #FFF; border-color: #555; }
-.icon-import { font-size: 1.1rem; }
-.icon-plus { font-size: 1.2rem; line-height: 1; }
 
 .empty-state { text-align: center; padding: 4rem 2rem; background-color: #1A1C1D; border: 1px dashed #333; border-radius: 12px; color: #7E8286; }
 
@@ -375,11 +385,7 @@ const saveExpense = async () => {
 .font-bold { font-weight: 600; color: #FFF; }
 .text-emerald { color: #00FF66; }
 
-/* MODALS (Globalized snippet) */
-.modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.modal { background: #1A1C1D; padding: 2.5rem; border-radius: 12px; width: 100%; max-width: 450px; border: 1px solid #333; box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 4px solid #00FF66;}
-.modal h3 { margin: 0 0 0.25rem 0; color: #FFF; font-size: 1.4rem; }
-.modal-sub { margin: 0 0 1.5rem 0; color: #7E8286; font-size: 0.9rem; line-height: 1.4; }
+/* Modal Content Adjustments */
 .form-grid { display: flex; flex-direction: column; gap: 1.25rem; }
 .form-group label { display: block; margin-bottom: 0.4rem; color: #A0A5AA; font-size: 0.85rem; font-weight: 500; }
 .form-group input, .form-group select { width: 100%; padding: 0.8rem 1rem; background: #111; border: 1px solid #333; border-radius: 8px; color: #FFF; font-size: 1rem; }
@@ -389,17 +395,15 @@ const saveExpense = async () => {
 .currency-symbol { color: #00FF66; font-size: 1.4rem; font-weight: 800; }
 .big-input input { border: none !important; font-size: 1.4rem; font-weight: 700; padding-left: 0.5rem; outline: none !important;}
 .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2.5rem; }
-.btn-cancel { background: transparent; color: #A0A5AA; border: none; font-weight: 600; cursor: pointer; padding: 0.6rem 1rem; }
-.btn-cancel:hover { color: #FFF; }
-.btn-primary { background: #00FF66; color: #000; border: none; font-weight: 700; padding: 0.8rem 1.5rem; border-radius: 8px; cursor: pointer; font-size: 1rem; }
-.btn-primary:active { transform: scale(0.98); }
-.btn-primary:disabled { background: #24272A; color: #555; cursor: not-allowed; }
+
+.loading-state { display: flex; flex-direction: column; align-items: center; padding: 5rem; gap: 1rem; color: #7E8286; }
+.spinner { width: 40px; height: 40px; border: 4px solid rgba(0,255,102,0.1); border-top: 4px solid #00FF66; border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
 @media (max-width: 600px) {
   .header-navigator { flex-direction: column; align-items: stretch; text-align: center; }
   .month-controls { justify-content: center; }
   .month-controls h2 { min-width: auto; font-size: 1.1rem; }
-  .btn-primary { width: 100%; justify-content: center; }
   .summary-cards { grid-template-columns: 1fr; }
   .card h3 { font-size: 1.5rem; }
 }

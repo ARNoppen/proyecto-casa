@@ -18,6 +18,8 @@ app.use('/api/auth', require('./src/routes/authRoutes'));
 app.use('/api/users', require('./src/routes/userRoutes'));
 app.use('/api/months', require('./src/routes/monthRoutes'));
 app.use('/api/expenses', require('./src/routes/expenseRoutes'));
+app.use('/api/loans', require('./src/routes/loanRoutes'));
+
 
 const PORT = process.env.PORT || 3000;
 
