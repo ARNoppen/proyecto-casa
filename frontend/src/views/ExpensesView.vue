@@ -12,6 +12,12 @@ const expensesData = ref([]);
 const usersList = ref([]);
 const loading = ref(true);
 const error = ref(null);
+const conceptsList = ref([]);
+const isEditingConcept = ref(false);
+const editConceptName = ref('');
+const showConfirmModal = ref(false);
+const conceptToDeactivate = ref(null);
+const creatingConcept = ref(false);
 
 const selectedMonth = ref(new Date().getMonth() + 1);
 const selectedYear = ref(new Date().getFullYear());
@@ -29,7 +35,7 @@ const confirmModal = ref({
 // Variables Modal de Edición
 const showEditModal = ref(false);
 const submitting = ref(false);
-const editForm = ref({ id: null, amount: '', description: '', date: '', assigned_to_user_id: null });
+const editForm = ref({ id: null, amount: '', description: '', date: '', assigned_to_user_id: null, concept_id: null });
 
 const loadExpenses = async () => {
   loading.value = true;
@@ -39,8 +45,12 @@ const loadExpenses = async () => {
     expensesData.value = data;
     
     if (usersList.value.length === 0) {
-      const uRes = await api.get('/users');
+      const [uRes, cRes] = await Promise.all([
+        api.get('/users'),
+        api.get('/concepts')
+      ]);
       usersList.value = uRes.data;
+      conceptsList.value = cRes.data;
     }
   } catch (err) {
     error.value = 'Error al cargar el historial del período.';
@@ -77,7 +87,8 @@ const openEditModal = (expense) => {
     amount: Math.abs(expense.amount), // El backend devuelve negativo, lo pasamos a positivo para el input
     description: expense.description,
     date: localDate,
-    assigned_to_user_id: expense.assigned_to_user_id
+    assigned_to_user_id: expense.assigned_to_user_id,
+    concept_id: expense.concept_id
   };
   showEditModal.value = true;
 };
@@ -105,7 +116,8 @@ const saveExpenseEdit = async () => {
       amount: normalizeMoney(editForm.value.amount),
       description: editForm.value.description,
       date: editForm.value.date.replace('T', ' '),
-      assigned_to_user_id: editForm.value.assigned_to_user_id
+      assigned_to_user_id: editForm.value.assigned_to_user_id,
+      concept_id: editForm.value.concept_id
     });
     showEditModal.value = false;
     loadExpenses();
@@ -113,6 +125,42 @@ const saveExpenseEdit = async () => {
     showAlert('Error', err.response?.data?.error || 'No se pudo guardar la edición.');
   } finally {
     submitting.value = false;
+  }
+};
+
+const handleUpdateConcept = async () => {
+  if (!editConceptName.value.trim() || !editForm.value.concept_id) return;
+  creatingConcept.value = true;
+  try {
+    const { data } = await api.put(`/concepts/${editForm.value.concept_id}`, { name: editConceptName.value });
+    const idx = conceptsList.value.findIndex(c => c.id === data.id);
+    if (idx !== -1) conceptsList.value[idx] = data;
+    conceptsList.value.sort((a, b) => a.name.localeCompare(b.name));
+    isEditingConcept.value = false;
+    loadExpenses(); // Para que se vea el cambio de nombre en la tabla si ya estaba
+  } catch (err) {
+    showAlert('Error', err.response?.data?.error || 'No se pudo actualizar.');
+  } finally {
+    creatingConcept.value = false;
+  }
+};
+
+const handleDeleteConcept = async (id) => {
+  try {
+    await api.delete(`/concepts/${id}`);
+    conceptsList.value = conceptsList.value.filter(c => c.id !== id);
+    if (editForm.value.concept_id === id) editForm.value.concept_id = null;
+    showConfirmModal.value = false;
+  } catch (err) {
+    showAlert('Error', 'No se pudo eliminar de la base de datos.');
+  }
+};
+
+const startEditConcept = () => {
+  const concept = conceptsList.value.find(c => c.id === editForm.value.concept_id);
+  if (concept) {
+    editConceptName.value = concept.name;
+    isEditingConcept.value = true;
   }
 };
 
@@ -143,6 +191,9 @@ const handleConfirm = () => {
       </div>
       
       <div class="header-actions">
+        <button @click="$router.push('/concepts')" class="btn btn-secondary">
+          <span>Administrar Conceptos</span>
+        </button>
         <button @click="$router.push('/import')" class="btn btn-secondary">
           <span>Importar Excel</span>
         </button>
@@ -182,7 +233,10 @@ const handleConfirm = () => {
                 {{ expense.date.split(' ')[1].slice(0, 5) }}
               </span>
             </td>
-            <td class="font-bold">{{ expense.description }}</td>
+            <td class="font-bold">
+              <span v-if="expense.concept_name" class="concept-tag">{{ expense.concept_name }}</span>
+              {{ expense.description }}
+            </td>
             <td>
               <span class="badge badge-assigned">{{ expense.assigned_to_name }}</span>
             </td>
@@ -217,7 +271,38 @@ const handleConfirm = () => {
             </div>
 
             <div class="form-group">
-              <label>Concepto Corregido</label>
+              <label>Concepto (Clasificación)</label>
+              <div class="concept-input-group">
+                <select v-model="editForm.concept_id">
+                  <option :value="null">Sin concepto / Seleccionar...</option>
+                  <option v-for="concept in conceptsList" :key="concept.id" :value="concept.id">
+                    {{ concept.name }}
+                  </option>
+                </select>
+                <button v-if="editForm.concept_id" type="button" class="btn-plus btn-edit" @click="startEditConcept" title="Editar seleccionado">
+                  ✏️
+                </button>
+                <button v-if="editForm.concept_id" type="button" class="btn-plus btn-danger-soft" @click="conceptToDeactivate = editForm.concept_id; showConfirmModal = true" title="Eliminar seleccionado">
+                  🗑️
+                </button>
+              </div>
+
+              <!-- Mini Form para editar concepto -->
+              <div v-if="isEditingConcept" class="new-concept-mini-form animate-in editing">
+                <input v-model="editConceptName" type="text" placeholder="Renombrar concepto..." @keyup.enter="handleUpdateConcept" />
+                <div class="mini-actions">
+                  <button type="button" class="btn btn-primary btn-sm" @click="handleUpdateConcept" :disabled="creatingConcept || !editConceptName.trim()">
+                    Guardar
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm" @click="isEditingConcept = false">
+                    ✕
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Descripción / Detalle corregido</label>
               <input v-model="editForm.description" type="text" required />
             </div>
 
@@ -255,6 +340,16 @@ const handleConfirm = () => {
       @cancel="confirmModal.show = false"
     />
 
+    <!-- Confirmación de Eliminación -->
+    <ConfirmModal 
+      :show="showConfirmModal"
+      title="Eliminar Concepto"
+      message="¿Estás seguro de que quieres eliminar este concepto de la lista de selección?"
+      type="danger"
+      @confirm="handleDeleteConcept(conceptToDeactivate)"
+      @cancel="showConfirmModal = false"
+    />
+
   </div>
 </template>
 
@@ -282,6 +377,7 @@ const handleConfirm = () => {
 .muted { color: #7E8286; }
 .date-time { display: block; font-size: 0.75rem; margin-top: 0.2rem; }
 .d-text { color: #ccc; }
+.concept-tag { background: rgba(255, 255, 255, 0.1); color: #A0A5AA; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.7rem; text-transform: uppercase; margin-right: 0.5rem; border: 1px solid rgba(255, 255, 255, 0.1); font-weight: normal; }
 
 .badge { padding: 0.3rem 0.8rem; border-radius: 50px; font-size: 0.8rem; font-weight: 600; }
 .badge-assigned { background: rgba(0, 229, 255, 0.1); color: #00E5FF; border: 1px solid rgba(0, 229, 255, 0.3); }
@@ -299,6 +395,19 @@ const handleConfirm = () => {
 .input-money-wrapper:focus-within { border-color: #00FF66; }
 .currency-symbol { color: #00FF66; font-size: 1.4rem; font-weight: 800; }
 .big-input input { border: none !important; font-size: 1.4rem; font-weight: 700; padding-left: 0.5rem; outline: none !important;}
+
+.concept-input-group { display: flex; gap: 0.5rem; }
+.btn-plus { width: 44px; background: #2A2C2E; border: 1px solid #333; color: #00FF66; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: 0.2s; }
+.btn-plus:hover { background: #333; border-color: #00FF66; }
+.btn-edit { color: #FFB020; font-size: 1rem; }
+.btn-danger-soft { color: #FF4A4A; font-size: 1rem; }
+
+.new-concept-mini-form { margin-top: 0.75rem; display: flex; gap: 0.5rem; background: rgba(0, 255, 102, 0.05); padding: 0.75rem; border-radius: 8px; border: 1px dashed rgba(0, 255, 102, 0.3); }
+.new-concept-mini-form.editing { background: rgba(255, 176, 32, 0.05); border-color: rgba(255, 176, 32, 0.3); }
+.new-concept-mini-form input { flex: 1; padding: 0.5rem !important; font-size: 0.9rem !important; }
+.btn-sm { padding: 0.5rem 1rem !important; font-size: 0.85rem !important; }
+.mini-actions { display: flex; gap: 0.25rem; }
+
 .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2.5rem; }
 
 .loading-state { display: flex; flex-direction: column; align-items: center; padding: 5rem; gap: 1rem; color: #7E8286; }

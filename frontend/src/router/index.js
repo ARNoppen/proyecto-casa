@@ -9,6 +9,7 @@ const MonthsView = () => import('../views/MonthsView.vue');
 const ExpensesView = () => import('../views/ExpensesView.vue');
 const ImportView = () => import('../views/ImportView.vue');
 const LoansView = () => import('../views/LoansView.vue');
+const ConceptsView = () => import('../views/ConceptsView.vue');
 
 const AuthLayout = () => import('../layouts/AuthLayout.vue');
 const MainLayout = () => import('../layouts/MainLayout.vue');
@@ -60,6 +61,11 @@ const routes = [
         path: 'loans',
         name: 'Préstamos Felicia',
         component: LoansView
+      },
+      {
+        path: 'concepts',
+        name: 'Conceptos',
+        component: ConceptsView
       }
     ]
   },

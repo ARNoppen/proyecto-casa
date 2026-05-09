@@ -26,7 +26,7 @@ const getExpenses = async (req, res) => {
 
 const createExpense = async (req, res) => {
     try {
-        const { amount, description, date, assigned_to_user_id, month, year } = req.body;
+        const { amount, description, date, assigned_to_user_id, month, year, concept_id } = req.body;
 
         if (!amount || !description || !date || !assigned_to_user_id || !month || !year) {
             return res.status(400).json({ error: 'Faltan campos obligatorios' });
@@ -42,7 +42,8 @@ const createExpense = async (req, res) => {
             monthly_config_id: config.id,
             date,
             amount: -Math.abs(parseFloat(amount)),
-            description
+            description,
+            concept_id: concept_id || null
         };
 
         const id = await ExpenseModel.create(expenseData);
@@ -55,7 +56,7 @@ const createExpense = async (req, res) => {
 const updateExpense = async (req, res) => {
     try {
         const { id } = req.params;
-        const { amount, description, date, assigned_to_user_id } = req.body;
+        const { amount, description, date, assigned_to_user_id, concept_id } = req.body;
 
         const expense = await ExpenseModel.findById(id);
         if (!expense) return res.status(404).json({ error: 'Gasto no encontrado' });
@@ -68,7 +69,7 @@ const updateExpense = async (req, res) => {
             return res.status(403).json({ error: 'Permiso denegado. Solo puedes editar los gastos que tú hayas cargado físicamente.' });
         }
 
-        await ExpenseModel.update(id, { assigned_to_user_id, date, amount: -Math.abs(parseFloat(amount)), description });
+        await ExpenseModel.update(id, { assigned_to_user_id, date, amount: -Math.abs(parseFloat(amount)), description, concept_id: concept_id || null });
         res.json({ message: 'Gasto actualizado correctamente' });
     } catch (error) {
         res.status(500).json({ error: 'Error interno al editar el ticket' });
@@ -116,7 +117,7 @@ const bulkCreateExpenses = async (req, res) => {
         const monthCache = {};
 
         for (const mov of movements) {
-            const { amount, description, date, assigned_to_user_id, month, year } = mov;
+            const { amount, description, date, assigned_to_user_id, month, year, concept_id } = mov;
 
             try {
                 const cacheKey = `${month}-${year}`;
@@ -140,7 +141,8 @@ const bulkCreateExpenses = async (req, res) => {
                     monthly_config_id: configId,
                     date,
                     amount: -Math.abs(parseFloat(amount)),
-                    description
+                    description,
+                    concept_id: concept_id || null
                 };
 
                 await ExpenseModel.create(expenseData);

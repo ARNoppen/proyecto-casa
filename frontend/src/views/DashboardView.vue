@@ -13,6 +13,15 @@ const dashboardData = ref(null);
 const usersData = ref([]);
 const loading = ref(true);
 const error = ref(null);
+const conceptsList = ref([]);
+const showNewConceptForm = ref(false);
+const newConceptName = ref('');
+const creatingConcept = ref(false);
+const editingConceptId = ref(null);
+const editConceptName = ref('');
+const isEditingConcept = ref(false);
+const showConfirmModal = ref(false);
+const conceptToDeactivate = ref(null);
 
 // Modal de Alerta
 const alertModal = ref({ show: false, title: '', message: '' });
@@ -37,18 +46,26 @@ const getLocalISOString = (date = new Date()) => {
 // Variables Modal de Gastos
 const showExpenseModal = ref(false);
 const submittingExpense = ref(false);
-const expenseForm = ref({ amount: '', description: '', date: getLocalISOString(), assigned_to_user_id: authStore.currentUser?.id });
+const expenseForm = ref({ 
+  amount: '', 
+  description: '', 
+  date: getLocalISOString(), 
+  assigned_to_user_id: authStore.currentUser?.id,
+  concept_id: null
+});
 
 const loadDashboard = async () => {
   loading.value = true;
   error.value = null;
   try {
-    const [dashRes, usersRes] = await Promise.all([
+    const [dashRes, usersRes, conceptsRes] = await Promise.all([
       api.get(`/months/dashboard?month=${selectedMonth.value}&year=${selectedYear.value}`),
-      api.get('/users')
+      api.get('/users'),
+      api.get('/concepts')
     ]);
     dashboardData.value = dashRes.data;
     usersData.value = usersRes.data.filter(u => u.is_active);
+    conceptsList.value = conceptsRes.data;
   } catch (err) {
     if (err.response && err.response.status === 404) {
       error.value = 'El período seleccionado aún no ha sido aperturado en la Base de Datos.';
@@ -118,9 +135,11 @@ const openExpenseModal = () => {
     amount: '', 
     description: '', 
     date: getLocalISOString(), 
-    assigned_to_user_id: authStore.currentUser?.id 
+    assigned_to_user_id: authStore.currentUser?.id,
+    concept_id: null
   };
   showExpenseModal.value = true;
+  showNewConceptForm.value = false;
 };
 
 const saveExpense = async () => {
@@ -132,7 +151,8 @@ const saveExpense = async () => {
       date: expenseForm.value.date.replace('T', ' '),
       assigned_to_user_id: expenseForm.value.assigned_to_user_id,
       month: selectedMonth.value,
-      year: selectedYear.value
+      year: selectedYear.value,
+      concept_id: expenseForm.value.concept_id
     });
     showExpenseModal.value = false;
     loadDashboard();
@@ -144,6 +164,66 @@ const saveExpense = async () => {
     };
   } finally {
     submittingExpense.value = false;
+  }
+};
+
+const handleCreateConcept = async () => {
+  if (!newConceptName.value.trim()) return;
+  creatingConcept.value = true;
+  try {
+    const { data } = await api.post('/concepts', { name: newConceptName.value });
+    conceptsList.value.push(data);
+    // Ordenar alfabéticamente
+    conceptsList.value.sort((a, b) => a.name.localeCompare(b.name));
+    // Auto-seleccionar
+    expenseForm.value.concept_id = data.id;
+    newConceptName.value = '';
+    showNewConceptForm.value = false;
+  } catch (err) {
+    alertModal.value = { 
+        show: true, 
+        title: 'Error', 
+        message: err.response?.data?.error || 'No se pudo crear el concepto.' 
+    };
+  } finally {
+    creatingConcept.value = false;
+  }
+};
+
+const handleUpdateConcept = async () => {
+  if (!editConceptName.value.trim() || !editingConceptId.value) return;
+  creatingConcept.value = true;
+  try {
+    const { data } = await api.put(`/concepts/${editingConceptId.value}`, { name: editConceptName.value });
+    const idx = conceptsList.value.findIndex(c => c.id === data.id);
+    if (idx !== -1) conceptsList.value[idx] = data;
+    conceptsList.value.sort((a, b) => a.name.localeCompare(b.name));
+    isEditingConcept.value = false;
+  } catch (err) {
+    alertModal.value = { show: true, title: 'Error', message: err.response?.data?.error || 'No se pudo actualizar.' };
+  } finally {
+    creatingConcept.value = false;
+  }
+};
+
+const handleDeleteConcept = async (id) => {
+  try {
+    await api.delete(`/concepts/${id}`);
+    conceptsList.value = conceptsList.value.filter(c => c.id !== id);
+    if (expenseForm.value.concept_id === id) expenseForm.value.concept_id = null;
+    showConfirmModal.value = false;
+  } catch (err) {
+    alertModal.value = { show: true, title: 'Error', message: 'No se pudo eliminar de la base de datos.' };
+  }
+};
+
+const startEditConcept = () => {
+  const concept = conceptsList.value.find(c => c.id === expenseForm.value.concept_id);
+  if (concept) {
+    editingConceptId.value = concept.id;
+    editConceptName.value = concept.name;
+    isEditingConcept.value = true;
+    showNewConceptForm.value = false;
   }
 };
 </script>
@@ -164,6 +244,9 @@ const saveExpense = async () => {
       </div>
       
       <div class="header-actions-group">
+        <button @click="$router.push('/concepts')" class="btn btn-secondary hide-mobile">
+          <span class="icon-import">⚙️</span><span>Conceptos</span>
+        </button>
         <button @click="$router.push('/import')" class="btn btn-secondary">
           <span class="icon-import">📥</span><span>Importar</span>
         </button>
@@ -257,7 +340,10 @@ const saveExpense = async () => {
             <tbody>
               <tr v-for="gasto in dashboardData.movimientos_recientes" :key="gasto.id">
                 <td>{{ gasto.date.split(' ')[0].split('-').reverse().join('/') }}</td>
-                <td class="font-bold">{{ gasto.description }}</td>
+                <td class="font-bold">
+                  <span v-if="gasto.concept_name" class="concept-tag">{{ gasto.concept_name }}</span>
+                  {{ gasto.description }}
+                </td>
                 <td class="text-emerald font-bold">${{ formatCurrency(gasto.amount) }}</td>
                 <td>{{ gasto.created_by_name }}</td>
                 <td>{{ gasto.assigned_to_name }}</td>
@@ -279,6 +365,7 @@ const saveExpense = async () => {
         
         <form @submit.prevent="saveExpense">
           <div class="form-grid">
+            <!-- 1. Monto -->
             <div class="form-group big-input">
               <label>Monto</label>
               <div class="input-money-wrapper">
@@ -287,16 +374,62 @@ const saveExpense = async () => {
               </div>
             </div>
 
+            <!-- 2. Concepto -->
             <div class="form-group">
-              <label>Puntualmente, ¿Qué se gastó?</label>
+              <label>Concepto (Clasificación)</label>
+              <div class="concept-input-group">
+                <select v-model="expenseForm.concept_id">
+                  <option :value="null">Seleccionar concepto...</option>
+                  <option v-for="concept in conceptsList" :key="concept.id" :value="concept.id">
+                    {{ concept.name }}
+                  </option>
+                </select>
+                <button type="button" class="btn-plus" @click="showNewConceptForm = !showNewConceptForm; isEditingConcept = false" title="Nuevo Concepto">
+                  {{ showNewConceptForm ? '✕' : '+' }}
+                </button>
+                <button v-if="expenseForm.concept_id" type="button" class="btn-plus btn-edit" @click="startEditConcept" title="Editar seleccionado">
+                  ✏️
+                </button>
+                <button v-if="expenseForm.concept_id" type="button" class="btn-plus btn-danger-soft" @click="conceptToDeactivate = expenseForm.concept_id; showConfirmModal = true" title="Eliminar seleccionado">
+                  🗑️
+                </button>
+              </div>
+              
+              <!-- Mini Form para nuevo concepto -->
+              <div v-if="showNewConceptForm" class="new-concept-mini-form animate-in">
+                <input v-model="newConceptName" type="text" placeholder="Nombre del nuevo concepto..." @keyup.enter="handleCreateConcept" />
+                <button type="button" class="btn btn-primary btn-sm" @click="handleCreateConcept" :disabled="creatingConcept || !newConceptName.trim()">
+                  Añadir
+                </button>
+              </div>
+
+              <!-- Mini Form para editar concepto -->
+              <div v-if="isEditingConcept" class="new-concept-mini-form animate-in editing">
+                <input v-model="editConceptName" type="text" placeholder="Renombrar concepto..." @keyup.enter="handleUpdateConcept" />
+                <div class="mini-actions">
+                  <button type="button" class="btn btn-primary btn-sm" @click="handleUpdateConcept" :disabled="creatingConcept || !editConceptName.trim()">
+                    Guardar
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm" @click="isEditingConcept = false">
+                    ✕
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. Descripción -->
+            <div class="form-group">
+              <label>Descripción / Detalle del gasto</label>
               <input v-model="expenseForm.description" type="text" placeholder="Ej: Compra Carnicería, Supermercado..." required />
             </div>
 
+            <!-- 4. Fecha -->
             <div class="form-group">
               <label>Fecha del Ticket</label>
               <input v-model="expenseForm.date" type="datetime-local" required />
             </div>
 
+            <!-- 5. Responsable -->
             <div class="form-group" v-if="dashboardData">
               <label>¿A nombre de quién se contabiliza?</label>
               <select v-model="expenseForm.assigned_to_user_id" required>
@@ -322,6 +455,16 @@ const saveExpense = async () => {
       :message="alertModal.message"
       :isAlert="true"
       @confirm="alertModal.show = false"
+    />
+
+    <!-- Confirmación de Eliminación -->
+    <ConfirmModal 
+      :show="showConfirmModal"
+      title="Eliminar Concepto"
+      message="¿Estás seguro de que quieres eliminar este concepto de la lista de selección?"
+      type="danger"
+      @confirm="handleDeleteConcept(conceptToDeactivate)"
+      @cancel="showConfirmModal = false"
     />
 
   </div>
@@ -384,6 +527,7 @@ const saveExpense = async () => {
 .data-table tr:hover { background-color: #24272A; }
 .font-bold { font-weight: 600; color: #FFF; }
 .text-emerald { color: #00FF66; }
+.concept-tag { background: rgba(255, 255, 255, 0.1); color: #A0A5AA; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.7rem; text-transform: uppercase; margin-right: 0.5rem; border: 1px solid rgba(255, 255, 255, 0.1); font-weight: normal; }
 
 /* Modal Content Adjustments */
 .form-grid { display: flex; flex-direction: column; gap: 1.25rem; }
@@ -394,6 +538,19 @@ const saveExpense = async () => {
 .input-money-wrapper:focus-within { border-color: #00FF66; }
 .currency-symbol { color: #00FF66; font-size: 1.4rem; font-weight: 800; }
 .big-input input { border: none !important; font-size: 1.4rem; font-weight: 700; padding-left: 0.5rem; outline: none !important;}
+
+.concept-input-group { display: flex; gap: 0.5rem; }
+.btn-plus { width: 44px; background: #2A2C2E; border: 1px solid #333; color: #00FF66; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: 0.2s; }
+.btn-plus:hover { background: #333; border-color: #00FF66; }
+.btn-edit { color: #FFB020; margin-left: 0.25rem; font-size: 1rem; }
+.btn-danger-soft { color: #FF4A4A; margin-left: 0.25rem; font-size: 1rem; }
+
+.new-concept-mini-form { margin-top: 0.75rem; display: flex; gap: 0.5rem; background: rgba(0, 255, 102, 0.05); padding: 0.75rem; border-radius: 8px; border: 1px dashed rgba(0, 255, 102, 0.3); }
+.new-concept-mini-form.editing { background: rgba(255, 176, 32, 0.05); border-color: rgba(255, 176, 32, 0.3); }
+.new-concept-mini-form input { flex: 1; padding: 0.5rem !important; font-size: 0.9rem !important; }
+.btn-sm { padding: 0.5rem 1rem !important; font-size: 0.85rem !important; }
+.mini-actions { display: flex; gap: 0.25rem; }
+
 .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2.5rem; }
 
 .loading-state { display: flex; flex-direction: column; align-items: center; padding: 5rem; gap: 1rem; color: #7E8286; }
