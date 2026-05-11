@@ -5,6 +5,8 @@ import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
 import { formatCurrency, normalizeMoney } from '../utils/formatters';
 import ConfirmModal from '../components/ConfirmModal.vue';
+import ActionButton from '../components/ActionButton.vue';
+import { exportExpensesToExcel } from '../utils/excelExport';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -47,7 +49,7 @@ const getLocalISOString = (date = new Date()) => {
 const showExpenseModal = ref(false);
 const submittingExpense = ref(false);
 const expenseForm = ref({ 
-  amount: '', 
+  amount: '-', 
   description: '', 
   date: getLocalISOString(), 
   assigned_to_user_id: authStore.currentUser?.id,
@@ -132,7 +134,7 @@ onMounted(() => {
 // Gastos Action
 const openExpenseModal = () => {
   expenseForm.value = { 
-    amount: '', 
+    amount: '-', 
     description: '', 
     date: getLocalISOString(), 
     assigned_to_user_id: authStore.currentUser?.id,
@@ -226,6 +228,11 @@ const startEditConcept = () => {
     showNewConceptForm.value = false;
   }
 };
+
+const handleExportExcel = () => {
+  const fileName = `gastos_${selectedYear.value}_${String(selectedMonth.value).padStart(2, '0')}.xlsx`;
+  exportExpensesToExcel(dashboardData.value.movimientos_recientes, fileName);
+};
 </script>
 
 <template>
@@ -244,17 +251,30 @@ const startEditConcept = () => {
       </div>
       
       <div class="header-actions-group">
-        <button @click="$router.push('/concepts')" class="btn btn-secondary hide-mobile">
-          <span class="icon-import">⚙️</span><span>Conceptos</span>
-        </button>
-        <button @click="$router.push('/import')" class="btn btn-secondary">
-          <span class="icon-import">📥</span><span>Importar</span>
-        </button>
-        <button v-if="dashboardData?.resumen_general?.status === 'open'" 
-                @click="openExpenseModal" 
-                class="btn btn-primary">
-          <span class="icon-plus">+</span><span>Registrar</span>
-        </button>
+        <ActionButton 
+          label="Exportar Excel" 
+          icon="📤" 
+          @click="handleExportExcel" 
+          :disabled="!dashboardData?.movimientos_recientes?.length"
+        />
+        <ActionButton 
+          label="Importar Excel" 
+          icon="📥" 
+          @click="$router.push('/import')" 
+        />
+        <ActionButton 
+          label="Conceptos" 
+          icon="⚙️" 
+          @click="$router.push('/concepts')" 
+          class="hide-mobile"
+        />
+        <ActionButton 
+          v-if="dashboardData?.resumen_general?.status === 'open'" 
+          label="Registrar" 
+          icon="+" 
+          type="primary" 
+          @click="openExpenseModal" 
+        />
       </div>
     </div>
 
@@ -332,6 +352,7 @@ const startEditConcept = () => {
               <tr>
                 <th>Fecha</th>
                 <th>Concepto</th>
+                <th>Descripción</th>
                 <th>Monto</th>
                 <th>Cargado por</th>
                 <th>A cuenta de</th>
@@ -340,16 +361,16 @@ const startEditConcept = () => {
             <tbody>
               <tr v-for="gasto in dashboardData.movimientos_recientes" :key="gasto.id">
                 <td>{{ gasto.date.split(' ')[0].split('-').reverse().join('/') }}</td>
-                <td class="font-bold">
+                <td>
                   <span v-if="gasto.concept_name" class="concept-tag">{{ gasto.concept_name }}</span>
-                  {{ gasto.description }}
                 </td>
+                <td class="font-bold">{{ gasto.description }}</td>
                 <td class="text-emerald font-bold">${{ formatCurrency(gasto.amount) }}</td>
                 <td>{{ gasto.created_by_name }}</td>
                 <td>{{ gasto.assigned_to_name }}</td>
               </tr>
               <tr v-if="dashboardData.movimientos_recientes.length === 0">
-                <td colspan="5" style="text-align: center; color: #777;">No se registraron gastos en este periodo fiscal.</td>
+                <td colspan="6" style="text-align: center; color: #777;">No se registraron gastos en este periodo fiscal.</td>
               </tr>
             </tbody>
           </table>

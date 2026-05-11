@@ -62,10 +62,11 @@ const getDashboardInfo = async (month, year) => {
     });
 
     const { rows: recent_expenses } = await pool.query(`
-        SELECT e.id, e.amount, e.description, e.date, e.created_at, u1.name as created_by_name, u2.name as assigned_to_name
+        SELECT e.id, e.amount, e.description, e.date, e.created_at, u1.name as created_by_name, u2.name as assigned_to_name, ec.name as concept_name
         FROM expenses e
         JOIN users u1 ON e.created_by_user_id = u1.id
         JOIN users u2 ON e.assigned_to_user_id = u2.id
+        LEFT JOIN expense_concepts ec ON e.concept_id = ec.id
         WHERE e.monthly_config_id = $1
         ORDER BY e.date DESC, e.created_at DESC
         LIMIT 10

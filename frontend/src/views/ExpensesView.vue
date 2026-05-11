@@ -5,6 +5,8 @@ import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
 import { formatCurrency, normalizeMoney } from '../utils/formatters';
 import ConfirmModal from '../components/ConfirmModal.vue';
+import ActionButton from '../components/ActionButton.vue';
+import { exportExpensesToExcel } from '../utils/excelExport';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -164,6 +166,11 @@ const startEditConcept = () => {
   }
 };
 
+const handleExportExcel = () => {
+  const fileName = `gastos_${selectedYear.value}_${String(selectedMonth.value).padStart(2, '0')}.xlsx`;
+  exportExpensesToExcel(expensesData.value, fileName);
+};
+
 // Helpers de Confirmación
 const showConfirm = (title, message, onConfirm, type = 'primary') => {
   confirmModal.value = { show: true, title, message, onConfirm, type, isAlert: false };
@@ -191,12 +198,22 @@ const handleConfirm = () => {
       </div>
       
       <div class="header-actions">
-        <button @click="$router.push('/concepts')" class="btn btn-secondary">
-          <span>Administrar Conceptos</span>
-        </button>
-        <button @click="$router.push('/import')" class="btn btn-secondary">
-          <span>Importar Excel</span>
-        </button>
+        <ActionButton 
+          label="Conceptos" 
+          icon="⚙️" 
+          @click="$router.push('/concepts')" 
+        />
+        <ActionButton 
+          label="Exportar Excel" 
+          icon="📤" 
+          @click="handleExportExcel" 
+          :disabled="!expensesData.length"
+        />
+        <ActionButton 
+          label="Importar Excel" 
+          icon="📥" 
+          @click="$router.push('/import')" 
+        />
         <p class="subtitle hide-mobile">Desglose estricto de auditoría familiar.</p>
       </div>
     </div>
@@ -218,7 +235,8 @@ const handleConfirm = () => {
         <thead>
           <tr>
             <th>Fecha Real</th>
-            <th>Concepto / Item</th>
+            <th>Concepto</th>
+            <th>Descripción / Item</th>
             <th>Atribuído A</th>
             <th>Ingresado Por</th>
             <th>Monto</th>
@@ -226,22 +244,22 @@ const handleConfirm = () => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="expense in expensesData" :key="expense.id">
-            <td>
-              <span class="d-text">{{ expense.date.split(' ')[0].split('-').reverse().join('/') }}</span>
-              <span class="muted date-time" v-if="expense.date.includes(' ')">
-                {{ expense.date.split(' ')[1].slice(0, 5) }}
-              </span>
-            </td>
-            <td class="font-bold">
-              <span v-if="expense.concept_name" class="concept-tag">{{ expense.concept_name }}</span>
-              {{ expense.description }}
-            </td>
-            <td>
-              <span class="badge badge-assigned">{{ expense.assigned_to_name }}</span>
-            </td>
-            <td class="muted">{{ expense.created_by_name }}</td>
-            <td class="text-emerald font-bold">${{ formatCurrency(expense.amount) }}</td>
+            <tr v-for="expense in expensesData" :key="expense.id">
+              <td>
+                <span class="d-text">{{ expense.date.split(' ')[0].split('-').reverse().join('/') }}</span>
+                <span class="muted date-time" v-if="expense.date.includes(' ')">
+                  {{ expense.date.split(' ')[1].slice(0, 5) }}
+                </span>
+              </td>
+              <td>
+                <span v-if="expense.concept_name" class="concept-tag">{{ expense.concept_name }}</span>
+              </td>
+              <td class="font-bold">{{ expense.description }}</td>
+              <td>
+                <span class="badge badge-assigned">{{ expense.assigned_to_name }}</span>
+              </td>
+              <td class="muted">{{ expense.created_by_name }}</td>
+              <td class="text-emerald font-bold">${{ formatCurrency(expense.amount) }}</td>
             <td>
               <div class="action-buttons" v-if="canEditExpense(expense)">
                 <button @click="openEditModal(expense)" class="btn-icon" title="Editar">✏️</button>
