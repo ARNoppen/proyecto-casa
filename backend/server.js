@@ -1,11 +1,33 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
 
-// Middlewares globales
-app.use(cors());
+// Middlewares globales y de Seguridad
+
+// 1. Cabeceras de seguridad HTTP
+app.use(helmet());
+
+// 2. Configuración de CORS
+const corsOptions = {
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    optionsSuccessStatus: 200 // para compatibilidad con navegadores antiguos
+};
+app.use(cors(corsOptions));
+
+// 3. Rate Limiting: Limitar peticiones para prevenir ataques de fuerza bruta
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 100, // Límite de 100 peticiones por IP
+    message: { error: 'Demasiadas peticiones desde esta IP. Intenta nuevamente en 15 minutos.' }
+});
+// Aplicar rate limiting solo a las rutas de la API
+app.use('/api', apiLimiter);
+
+// 4. Parseo de body
 app.use(express.json());
 
 // Probar que el servidor vive
